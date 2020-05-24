@@ -2,9 +2,104 @@
 <head>
 	<title>Labyrinth</title>
   	<script id=socket src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"> </script>
+    <script src="https://jeremyckahn.github.io/keydrown/dist/keydrown.min.js"> </script>
 </head>
 <body style="background-color:black" oncontextmenu="return false;">
-	<canvas id="canvas" height="600" width="500"></canvas>
+	<script>
+            init();
+            animate();
+            
+            var xpos = 0, ypos = 0, zpos = 0;
+            var speed = 0.1;
+            var scene, camera, renderer;
+            
+            function animate() {
+                requestAnimationFrame( animate );
+                camera.position.x = xpos;
+                camera.position.y = ypos;
+                camera.position.z = zpos;
+                update_keyboardWASD();
+                renderer.render( scene, camera );
+            }
+            
+            function init(){
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+                renderer = new THREE.WebGLRenderer();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+
+                //Create a DirectionalLight and turn on shadows for the light
+                var light = new THREE.DirectionalLight( 0xffffff, 1, 100000 );
+                light.position.set( 0, 1, 0 ); 			//default; light shining from top
+                light.castShadow = true;            // default false
+                scene.add( light );
+
+                //Set up shadow properties for the light
+                light.shadow.mapSize.width = 512;  // default
+                light.shadow.mapSize.height = 512; // default
+                light.shadow.camera.near = 0.5;    // default
+                light.shadow.camera.far = 500;     // default
+
+                //Create a sphere that cast shadows (but does not receive them)
+                var sphereGeometry = new THREE.SphereBufferGeometry( 50, 32, 32 );
+                var sphereMaterial = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
+                var sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+                sphere.castShadow = true; //default is false
+                sphere.receiveShadow = false; //default
+                scene.add( sphere );
+
+                //Create a plane that receives shadows (but does not cast them)
+                var planeGeometry = new THREE.PlaneBufferGeometry( 20, 20, 32, 32 );
+                var planeMaterial = new THREE.MeshStandardMaterial( { color: 0x00ff00 } )
+                var plane = new THREE.Mesh( planeGeometry, planeMaterial );
+                plane.receiveShadow = true;
+                scene.add( plane );
+
+                //Create a helper for the shadow camera (optional)
+                var helper = new THREE.CameraHelper( light.shadow.camera );
+                scene.add( helper );
+                document.body.appendChild( renderer.domElement );
+                
+                kd.run(function () {
+                  kd.tick();
+                });
+            }
+            function update_keyboardWASD(){
+                kd.W.down(function () {
+                    zpos-=speed*Math.cos(camera.rotation.y);
+                    xpos-=speed*Math.sin(camera.rotation.y)
+                });
+                kd.S.down(function(){
+                    zpos+=speed*Math.cos(camera.rotation.y); 
+                    xpos+=speed*Math.sin(camera.rotation.y)
+                });
+                kd.A.down(function(){
+                    xpos-=speed*Math.cos(camera.rotation.y); 
+                    zpos+=speed*Math.sin(camera.rotation.y)
+                });
+                kd.D.down(function(){
+                    xpos+=speed*Math.cos(camera.rotation.y); 
+                    zpos-=speed*Math.sin(camera.rotation.y);
+                });
+                // next ones are for testing purposes
+                kd.R.down(function(){
+                    ypos+=speed;
+                });
+                kd.F.down(function(){
+                    ypos-=speed;
+                })
+                kd.RIGHT.down(function(){
+                    rot_x = 2;
+                });
+                kd.LEFT.down(function(){
+                    rot_x = -2;
+                });
+            }
+		</script>
 </body>
 <script src="/client/client.js"></script>
 </html>
