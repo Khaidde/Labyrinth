@@ -197,7 +197,7 @@
               kd.tick();
             });
         }
-        lightUp function(){
+        function lightUp(){
 //            var light = new THREE.AmbientLight( 0xF0F0F0, 1 ); // soft white light
 //            scene.add( light );
             
@@ -208,7 +208,7 @@
             pLight.shadow.bias = 0.0001;
             scene.add( pLight );
         }
-        testSphere: function(){
+        function testSphere(){
             geometry = new THREE.SphereGeometry( 600, 50, 50 );
             material = new THREE.MeshStandardMaterial( {wireframe:false} );
             mesh = new THREE.Mesh( geometry, material );
