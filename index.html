@@ -41,10 +41,10 @@
                 
                 var boxMatF = new THREE.MeshPhongMaterial();
                 var boxMatC = new THREE.MeshPhongMaterial();
-                var boxMatW = new THREE.MeshPhongMaterial({color: 0x333333});
+                var boxMatW = new THREE.MeshPhongMaterial({color: 0x444444});
                 
                 var meshF = new THREE.Mesh(geomTile, boxMatF);                
-                meshF.material.color.setHex(0x192841);
+                meshF.material.color.setHex(0x650000);
                 
                 meshF.receiveShadow = true; //default
 //                meshC.material.color.setHex(0x555555);
@@ -198,8 +198,8 @@
             });
         }
         function lightUp(){
-//            var light = new THREE.AmbientLight( 0xF0F0F0, 1 ); // soft white light
-//            scene.add( light );
+            var light = new THREE.AmbientLight( 0x008080, 0.5 ); // soft white light
+            scene.add( light );
             
             var pLight = new THREE.DirectionalLight( 0xffffff, 2.5 );
             pLight.decay = 2;
