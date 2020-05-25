@@ -1,6 +1,6 @@
 var canvas;
-var canvasW;
-var canvasH;
+var screenW;
+var screenH;
 var ctx;
 
 const FPS = 60;
@@ -32,61 +32,113 @@ class ClientPlayer extends Entity{
 		this.rot_y = 0;
 		this.rot_z = 0;
 
-		this.speed = 20;
+		const MOVEMENT_SPEED = 20;
+		const TURN_SPEED = 0.001;
 
-		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100000);
+		this.controller = new FPSController(this.camera, graphics.renderer.domElement);
+		this.controller.speed = MOVEMENT_SPEED;
+		this.controller.turnSpeed = TURN_SPEED;
 
-		this.initInput();
+		//Temporary
+		graphics.renderer.domElement.onclick = () => {
+			this.controller.lock();
+		};
 	}
-	initInput() {
-		var self = this;
-		kd.W.down(function () {
-      	self.zpos-=self.speed*Math.cos(self.camera.rotation.y);
-      	self.xpos-=self.speed*Math.sin(self.camera.rotation.y);
-      });
-      kd.S.down(function() {
-      	self.zpos+=self.speed*Math.cos(self.camera.rotation.y);
-         self.xpos+=self.speed*Math.sin(self.camera.rotation.y);
-      });
-      kd.A.down(function() {
-      	self.xpos-=self.speed*Math.cos(self.camera.rotation.y);
-         self.zpos+=self.speed*Math.sin(self.camera.rotation.y);
-      });
-      kd.D.down(function() {
-      	self.xpos+=self.speed*Math.cos(self.camera.rotation.y);
-         self.zpos-=self.speed*Math.sin(self.camera.rotation.y);
-      });
-      // next ones are for testing purposes
-      kd.R.down(function() {
-      	self.ypos+=self.speed;
-      });
-      kd.F.down(function() {
-      	self.ypos-=self.speed;
-      })
-      kd.RIGHT.down(function() {
-      	self.rot_x = 2;
-      });
-      kd.LEFT.down(function() {
-      	self.rot_x = -2;
-      });
-		kd.run(function() {
-      	kd.tick();
-      });
-	}
-	update() {
-		this.camera.position.x = this.xpos;
-      this.camera.position.y = this.ypos;
-      this.camera.position.z = this.zpos;
-
-      this.camera.rotation.y -= Math.PI/180 * this.rot_x * 0.6;
-//            camera.rotation.x -= Math.PI/180 * rot_y * 0.6;
-//            camera.rotation.z += Math.PI/180 * rot_z * 0.6;
-      this.rot_x = 0;
-
-		this.camera.updateProjectionMatrix();
+	update(delta) {
+		this.controller.update(delta);
 	}
 	render() {
 		//TODO if the clientPlayer is renderer, it should be rendererd here
+	}
+}
+
+//Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
+class FPSController {
+	constructor(camera, domElement) {
+		this.camera = camera;
+
+		this.speed = 5;
+		this.turnSpeed = 0.001;
+
+		this.moveForward = false;
+		this.moveBackward = false;
+		this.moveLeft = false;
+		this.moveRight = false;
+
+		this.moveUp = false;
+		this.moveDown = false;
+
+		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
+		this.PI_2 = Math.PI / 2;
+
+		this.domElement = domElement
+		this.domElement.requestPointerLock = domElement.requestPointerLock || domElement.mozRequestPointerLock;
+		document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+
+		this.initInput();
+
+		domElement.requestPointerLock();
+	}
+	initInput() {
+		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
+		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
+		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
+
+		function bind(scope, fn) {
+			return function() {
+				fn.apply(scope, arguments);
+			};
+		};
+	}
+	onMouseMove(event) {
+		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+		this.euler.setFromQuaternion(this.camera.quaternion);
+
+		this.euler.y -= movementX * this.turnSpeed;
+		this.euler.x -= movementY * this.turnSpeed;
+
+		this.euler.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.euler.x));
+
+		this.camera.quaternion.setFromEuler(this.euler);
+	}
+	onKeyDown(event) {
+		switch(event.keyCode) {
+			case 87: /*W*/ this.moveForward = true; break;
+			case 65: /*A*/ this.moveLeft = true; break;
+			case 83: /*S*/ this.moveBackward = true; break;
+			case 68: /*D*/ this.moveRight = true; break;
+
+			case 82: /*R*/ this.moveUp = true; break;
+			case 70: /*F*/ this.moveDown = true; break;
+		}
+	}
+	onKeyUp(event) {
+		switch(event.keyCode) {
+			case 87: /*W*/ this.moveForward = false; break;
+			case 65: /*A*/ this.moveLeft = false; break;
+			case 83: /*S*/ this.moveBackward = false; break;
+			case 68: /*D*/ this.moveRight = false; break;
+
+			case 82: /*R*/ this.moveUp = false; break;
+			case 70: /*F*/ this.moveDown = false; break;
+		}
+	}
+	update(delta) {
+		if (this.moveForward) this.camera.translateZ(-this.speed * delta);
+		if (this.moveBackward) this.camera.translateZ(this.speed * delta);
+		if (this.moveLeft) this.camera.translateX(-this.speed * delta);
+		if (this.moveRight) this.camera.translateX(this.speed * delta);
+		if (this.moveUp) this.camera.translateY(this.speed * delta);
+		if (this.moveDown) this.camera.translateY(-this.speed * delta);
+	}
+	lock() {
+		this.domElement.requestPointerLock();
+	}
+	unlock() {
+		document.exitPointerLock();
 	}
 }
 
@@ -290,7 +342,7 @@ const graphics = {
 		this.renderer.setClearColor( 0x0a0806, 1);
       this.renderer.setPixelRatio( window.devicePixelRatio );
 
-      this.renderer.setSize(canvasW, canvasH);
+      this.renderer.setSize(screenW, screenH);
       this.renderer.render(this.scene, main.player.camera);
 	},
 	lightUp: function(){
@@ -358,14 +410,14 @@ const main = {
 		this.mapGenerator = new MapGenerator(this.mapSize, this.mapSize);
 		this.map = this.mapGenerator.generate();
 
-		this.player = new ClientPlayer();
-
 		graphics.init();
+
+		this.player = new ClientPlayer();
 	},
-	update: function() {
+	update: function(delta) {
 		this.updateSize();
 
-		this.player.update();
+		this.player.update(delta);
 	},
 	render: function() {
 		graphics.render();
@@ -386,20 +438,20 @@ const main = {
 	clearCanvas: function() {
 		ctx.globalAlpha = 1;
 		ctx.fillStyle = this.BACKGROUND_COLOR;
-		ctx.fillRect(0, 0, canvasW, canvasH);
+		ctx.fillRect(0, 0, screenW, screenH);
 	},
 	updateSize: function() {
-		canvasW = window.innerWidth ||
+		screenW = window.innerWidth ||
 	   	document.documentElement.clientWidth ||
 	    	document.body.clientWidth;
-	  	canvasH = window.innerHeight ||
+	  	screenH = window.innerHeight ||
 	    	document.documentElement.clientHeight ||
 	    	document.body.clientHeight;
-		if (canvas.width != canvasW) {
-		   canvas.width = canvasW;
+		if (canvas.width != screenW) {
+		   canvas.width = screenW;
 		}
-		if (canvas.height != canvasH) {
-			canvas.height = canvasH;
+		if (canvas.height != screenH) {
+			canvas.height = screenH;
 		}
 	}
 }
@@ -415,8 +467,13 @@ window.onload =
     	this.ctx = this.canvas.getContext("2d");
 		main.updateSize();
 		main.init();
-		var playLoop = setInterval(function() {
-    		main.update();
+
+		var lastUpdateTime = (new Date()).getTime();
+		setInterval(function() {
+			var currentTime = (new Date()).getTime();
+			var delta = currentTime - lastUpdateTime;
+    		main.update(delta);
     		main.render();
+			lastUpdateTime = currentTime;
   		}, 1000 / FPS);
   	}
