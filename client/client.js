@@ -26,16 +26,17 @@ class Entity {
 }
 
 class ClientPlayer extends Entity{
-	constructor(x = 0, y = 400, z = 0) {
+	constructor(x = 0, y = 1000, z = 0) {
 		super(x, y, z);
-		this.rot_x = 0;
-		this.rot_y = 0;
-		this.rot_z = 0;
 
-		const MOVEMENT_SPEED = 20;
+		const MOVEMENT_SPEED = 5;
 		const TURN_SPEED = 0.001;
 
-		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100000);
+		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+		this.camera.position.x = x;
+		this.camera.position.y = y;
+		this.camera.position.z = z;
+
 		this.controller = new FPSController(this.camera, graphics.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
@@ -71,8 +72,9 @@ class FPSController {
 
 		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
 		this.PI_2 = Math.PI / 2;
+		this.vec = new THREE.Vector3();
 
-		this.domElement = domElement
+		this.domElement = domElement;
 		this.domElement.requestPointerLock = domElement.requestPointerLock || domElement.mozRequestPointerLock;
 		document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
@@ -126,13 +128,27 @@ class FPSController {
 			case 70: /*F*/ this.moveDown = false; break;
 		}
 	}
+	moveCamForward(distance) {
+		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
+		this.vec.crossVectors(this.camera.up, this.vec);
+		this.camera.position.addScaledVector(this.vec, distance);
+	}
+	moveCamRight(distance) {
+		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
+		this.camera.position.addScaledVector(this.vec, distance);
+	}
+	moveCamUp(distance) {
+		this.camera.position.y += distance;
+	}
 	update(delta) {
-		if (this.moveForward) this.camera.translateZ(-this.speed * delta);
-		if (this.moveBackward) this.camera.translateZ(this.speed * delta);
-		if (this.moveLeft) this.camera.translateX(-this.speed * delta);
-		if (this.moveRight) this.camera.translateX(this.speed * delta);
-		if (this.moveUp) this.camera.translateY(this.speed * delta);
-		if (this.moveDown) this.camera.translateY(-this.speed * delta);
+		if (this.moveForward && !this.moveBackward) this.moveCamForward(this.speed * delta);
+		if (this.moveBackward && !this.moveForward) this.moveCamForward(-this.speed * delta);
+
+		if (this.moveLeft && !this.moveRight) this.moveCamRight(-this.speed * delta);
+		if (this.moveRight && !this.moveLeft) this.moveCamRight(this.speed * delta);
+
+		if (this.moveUp && !this.moveDown) this.moveCamUp(this.speed * delta);
+		if (this.moveDown && !this.moveUp) this.moveCamUp(-this.speed * delta);
 	}
 	lock() {
 		this.domElement.requestPointerLock();
