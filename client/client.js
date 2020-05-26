@@ -5,16 +5,6 @@ var ctx;
 
 const FPS = 60;
 
-class Coord {
-	constructor(x, y) {
-		this.x = x;
-		this.y = y;
-	}
-	toIndex(width) {
-		return this.x + this.y * width;
-	}
-}
-
 class Entity {
 	constructor(x, y, z) {
 		this.xpos = x;
@@ -40,11 +30,9 @@ class ClientPlayer extends Entity{
 		this.controller = new FPSController(this.camera, graphics.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
-
-		//Temporary
-		graphics.renderer.domElement.onclick = () => {
-			this.controller.lock();
-		};
+		this.controller.addPointUnlockListener(function() {
+			graphics.menuOpacity = 0;
+		});
 	}
 	update(delta) {
 		this.controller.update(delta);
@@ -78,11 +66,14 @@ class FPSController {
 		this.domElement.requestPointerLock = domElement.requestPointerLock || domElement.mozRequestPointerLock;
 		document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
-		this.initInput();
+		this.lockCallback = function(){};
+		this.unlockCallback = function(){};
 
-		domElement.requestPointerLock();
+		this.initEvents();
 	}
-	initInput() {
+	initEvents() {
+		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
+
 		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
 		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
 		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
@@ -92,6 +83,19 @@ class FPSController {
 				fn.apply(scope, arguments);
 			};
 		};
+	}
+	addPointLockListener(callback) {
+		this.lockCallback = callback;
+	}
+	addPointUnlockListener(callback) {
+		this.unlockCallback = callback;
+	}
+	onPointerlockChange() {
+		if (document.pointerLockElement === this.domElement) {
+			this.lockCallback();
+		} else {
+			this.unlockCallback();
+		}
 	}
 	onMouseMove(event) {
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
@@ -341,22 +345,55 @@ const graphics = {
 	init: function() {
 		this.scene = new THREE.Scene();
 
+		this.renderer = new THREE.WebGLRenderer();
+		this.renderer.shadowMap.enabled = true;
+		this.renderer.shadowMapSoft = true; // default THREE.PCFShadowMap
+
+		document.body.appendChild(this.renderer.domElement);
+
+		this.initMenu();
+		this.initGame();
+	},
+	initMenu: function() {
+		this.menuOpacity = 1;
+		var blocker = document.getElementById("blocker");
+		var login = document.getElementById("login");
+
+		var usernameInput = document.getElementById("usernameInput");
+		var btn = document.getElementById("playBtn");
+
+		btn.addEventListener("click", function() {
+			if (usernameInput.value.length < 1) return;
+			main.player.controller.lock();
+			document.getElementById("blocker").style.opacity = 0;
+			graphics.menuOpacity = 1;
+
+			console.log(usernameInput.value);
+		});
+
+		/*
+		instructions.addEventListener("click", function() {
+			//main.player.controller.lock();
+			graphics.initGame();
+			instructions.style.display = 'none';
+			blocker.style.display = 'none';
+		}, false);*/
+	},
+	initGame: function() {
 		this.lightUp();
 
 		// sphere existence is good for testing
 		this.testSphere();
 
 		this.interpretMap(main.map, main.mapSize, main.mapSize);
-
-		this.renderer = new THREE.WebGLRenderer();
-		this.renderer.shadowMap.enabled = true;
-		this.renderer.shadowMapSoft = true; // default THREE.PCFShadowMap
-
-		document.body.appendChild(this.renderer.domElement);
 	},
 	render: function() {
-		this.renderer.setClearColor( 0x0a0806, 1);
-      this.renderer.setPixelRatio( window.devicePixelRatio );
+		if (this.menuOpacity < 1) {
+			this.menuOpacity += 0.01;
+			document.getElementById("blocker").style.opacity = this.menuOpacity;
+		}
+		this.renderer.setClearColor(0x0a0806, 1);
+      this.renderer.setPixelRatio(window.devicePixelRatio);
 
       this.renderer.setSize(screenW, screenH);
       this.renderer.render(this.scene, main.player.camera);
