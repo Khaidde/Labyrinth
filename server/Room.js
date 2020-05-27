@@ -1,11 +1,28 @@
 const Player = require('./Player');
 
 class Room {
-	constructor() {
+	constructor(roomID) {
+		this.roomID = roomID;
 		this.players = new Map();
+
+		this.size = 0;
 	}
 	addPlayer(name, socketID) {
-		this.players.put(socketID, player);
+		if (!this.players.has(socketID)) {
+			var player = new Player(name , socketID);
+			this.players.set(socketID, player);
+			this.size++;
+		} else {
+			throw "player {" + socketID + "} already exists";
+		}
+	}
+	removePlayer(socketID) {
+		if (this.players.has(socketID)) {
+      	this.players.delete(socketID);
+			this.size--;
+   	} else {
+			throw "player {" + socketID + "} does not exist and can't be removed";
+		}
 	}
 	getPlayerBySocketID(socketID) {
 		if (this.players.has(socketID)) {
@@ -16,11 +33,6 @@ class Room {
 		return players.values().find(function(player) {
 			return player.name == username;
 		});
-	}
-	containsUsername(username) {
-		return players.values().find(function(player) {
-			return player.name == username;
-		}) != undefined;
 	}
 	update() {
 

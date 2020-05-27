@@ -64,13 +64,15 @@
 					<br>
 					<br>
 					<label for="roomIDInput">Room ID:</label><br>
-					<input type="text" id="roomIDInput" name="roomID" placeholder="Leave empty for random"><br>
+					<input type="text" id="roomIDInput" name="roomID" required maxlength="5" placeholder="Leave empty for random"><br>
 					<label for="usernameInput">Username:</label><br>
 					<input type="text" id="usernameInput" name="username" required maxlength="10" placeholder="Max 10 characters"><br><br>
 					<button type="button" id="playBtn">Play</button>
 				</div>
 			</div>
 		</div>
-		<script src="client/client.js"></script>
+		<script src="client/bundle.js"></script>
+		<!-- <script src="client/Constants.js" type="text/javascript"></script>
+		<script src="client/client.js" type="text/javascript"></script> -->
 	</body>
 </html>
