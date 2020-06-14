@@ -47,7 +47,7 @@ class World {
 		// sphere existence is good for testing
 		this.testSphere();
 
-		this.mapSize = 11;
+		this.mapSize = 5;
 		this.mapGenerator = new MapGenerator(this.mapSize, this.mapSize);
 		this.map = this.mapGenerator.generate();
 		this.interpretMap(this.map, this.mapSize, this.mapSize);
