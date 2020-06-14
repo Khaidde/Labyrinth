@@ -6,20 +6,16 @@ class MapGenerator {
 		this.cellW = (width - 1) / 2;
 		this.cellH = (width - 1) / 2;
 	}
-	static get WALL_HEIGHT() { return 5; }
+	static get WALL_HEIGHT() { return 10; }
 	static get FLOOR_HEIGHT() { return 0; }
 	generate() {
-		this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
-
-
 		if (this.width % 2 == 0 || this.height % 2 == 0) {
 			throw "width and height of map must be odd";
 		}
 		this.map = [];
 		for (var y = 0; y < this.height; y++) {
 			for (var x = 0; x < this.width; x++) {
-				this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
-				this.setMap(x, y, this.randH);
+				this.setMap(x, y, MapGenerator.WALL_HEIGHT);
 			}
 		}
 		var randX = Math.floor(Math.random() * this.cellW);
@@ -60,13 +56,13 @@ class MapGenerator {
 		this.setMap(cellX * 2 + 1, cellY * 2 + 1, MapGenerator.FLOOR_HEIGHT);
 
 		if (cellX - 1 >= 0 && !adjacentMap.includes(cellX - 1 + cellY * this.cellW)
-			&& this.getMap((cellX - 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX - 1 + cellY * this.cellW);
+			&& this.getMap((cellX - 1) * 2 + 1, cellY * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX - 1 + cellY * this.cellW);
 		if (cellX + 1 < this.cellW && !adjacentMap.includes(cellX + 1 + cellY * this.cellW)
-			&& this.getMap((cellX + 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + 1 + cellY * this.cellW);
+			&& this.getMap((cellX + 1) * 2 + 1, cellY * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + 1 + cellY * this.cellW);
 		if (cellY - 1 >= 0 && !adjacentMap.includes(cellX + (cellY - 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY - 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY - 1) * this.cellW);
+			&& this.getMap(cellX * 2 + 1, (cellY - 1) * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + (cellY - 1) * this.cellW);
 		if (cellY + 1 < this.cellH && !adjacentMap.includes(cellX + (cellY + 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY + 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY + 1) * this.cellW);
+			&& this.getMap(cellX * 2 + 1, (cellY + 1) * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + (cellY + 1) * this.cellW);
 
 		if (adjacentMap.length == 0) return;
 

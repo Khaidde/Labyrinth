@@ -1,4 +1,5 @@
-const Player = require('./Player');
+const Player = require("./Player");
+var MapGenerator = require("./MapGenerator");
 
 class Room {
 	constructor(roomID) {

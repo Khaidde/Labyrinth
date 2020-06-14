@@ -14,7 +14,7 @@ var rooms = new Map();
 var clientToRoomMap = new Map();
 
 const PORT = process.env.PORT || 5000;
-const FRAME_RATE = 1000.0 / 80.0;//Constants.FPS;
+const FRAME_RATE = 1000.0 / 80.0; //Constants.FPS;
 const ROOM_ID_MAX_LENGTH = 5;
 
 app.set("port", PORT);

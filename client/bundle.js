@@ -7,6 +7,345 @@ var Constants = {
 module.exports = Constants;
 
 },{}],2:[function(require,module,exports){
+class MapGenerator {
+	constructor(width, height) {
+		this.width = width;
+		this.height = height;
+
+		this.cellW = (width - 1) / 2;
+		this.cellH = (width - 1) / 2;
+	}
+	static get WALL_HEIGHT() { return 5; }
+	static get FLOOR_HEIGHT() { return 0; }
+	generate() {
+		this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
+
+
+		if (this.width % 2 == 0 || this.height % 2 == 0) {
+			throw "width and height of map must be odd";
+		}
+		this.map = [];
+		for (var y = 0; y < this.height; y++) {
+			for (var x = 0; x < this.width; x++) {
+				this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
+				this.setMap(x, y, this.randH);
+			}
+		}
+		var randX = Math.floor(Math.random() * this.cellW);
+		var randY = Math.floor(Math.random() * this.cellH);
+		this.iterateMazeGeneration(randX, randY, []);
+
+		/*
+		var rX;
+		var rY;
+		for (var i = 0; i < 10; i++) {
+			rX = Math.floor(Math.random() * this.cellW);
+			rY = Math.floor(Math.random() * this.cellH) + (rX + 1) % 2;
+			this.setMap(rX * 2 + 1, rY * 2, MapGenerator.FLOOR_HEIGHT);
+		}
+
+		for (var yi = 0; yi < this.height; yi++) {
+			for (var xi = 0; xi < this.width; xi++) {
+				if (this.getMap(xi, yi) == MapGenerator.WALL_HEIGHT) {
+					if (this.getMap(xi + 1, yi) == MapGenerator.FLOOR_HEIGHT) {
+						if (this.getMap(xi - 1, yi) == MapGenerator.FLOOR_HEIGHT) {
+							if (this.getMap(xi, yi + 1) == MapGenerator.FLOOR_HEIGHT) {
+								if (this.getMap(xi, yi - 1) == MapGenerator.FLOOR_HEIGHT) {
+									this.setMap(xi, yi, MapGenerator.FLOOR_HEIGHT);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		this.createRoom(11, 11, 7, 7);
+		*/
+
+		return this.map;
+	}
+	iterateMazeGeneration(cellX, cellY, adjacentMap) {
+		this.setMap(cellX * 2 + 1, cellY * 2 + 1, MapGenerator.FLOOR_HEIGHT);
+
+		if (cellX - 1 >= 0 && !adjacentMap.includes(cellX - 1 + cellY * this.cellW)
+			&& this.getMap((cellX - 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX - 1 + cellY * this.cellW);
+		if (cellX + 1 < this.cellW && !adjacentMap.includes(cellX + 1 + cellY * this.cellW)
+			&& this.getMap((cellX + 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + 1 + cellY * this.cellW);
+		if (cellY - 1 >= 0 && !adjacentMap.includes(cellX + (cellY - 1) * this.cellW)
+			&& this.getMap(cellX * 2 + 1, (cellY - 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY - 1) * this.cellW);
+		if (cellY + 1 < this.cellH && !adjacentMap.includes(cellX + (cellY + 1) * this.cellW)
+			&& this.getMap(cellX * 2 + 1, (cellY + 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY + 1) * this.cellW);
+
+		if (adjacentMap.length == 0) return;
+
+		var randNewMark = adjacentMap.splice(Math.floor(Math.random() * adjacentMap.length), 1)[0];
+		var newMarkX = randNewMark % this.cellW;
+		var newMarkY = Math.floor(randNewMark / this.cellW);
+
+		var neighbors = this.findOpenNeighbors(newMarkX, newMarkY);
+		var randNeighbor = neighbors.splice(Math.floor(Math.random() * neighbors.length), 1)[0];
+		this.setMap(((randNeighbor % this.cellW) + newMarkX) + 1, ((Math.floor(randNeighbor / this.cellW)) + newMarkY) + 1, MapGenerator.FLOOR_HEIGHT);
+
+		this.iterateMazeGeneration(newMarkX, newMarkY, adjacentMap);
+	}
+	findOpenNeighbors(cellX, cellY) {
+		var neighbors = [];
+		if (cellX - 1 >= 0
+			&& this.map[((cellX - 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
+			neighbors.push(cellX - 1 + cellY * this.cellW);
+		if (cellX + 1 < this.cellW
+			&& this.map[((cellX + 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
+			neighbors.push(cellX + 1 + cellY * this.cellW);
+		if (cellY - 1 >= 0
+			&& this.map[(cellX * 2 + 1) + ((cellY - 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
+			neighbors.push(cellX + (cellY - 1) * this.cellW);
+		if (cellY + 1 < this.cellH
+			&& this.map[(cellX * 2 + 1) + ((cellY + 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
+			neighbors.push(cellX + (cellY + 1) * this.cellW);
+		return neighbors;
+	}
+	createRoom(x, y, roomWidth, roomHeight) {
+		if (x < 0 || x + roomWidth >= this.width || y < 0 || y + roomHeight >= this.height) {
+			throw "invalid room creation of position (" + x + "," + y + ") with width: " + roomWidth + ", height: " + roomHeight;
+		}
+		for (var yo = 0; yo < roomHeight; yo++) {
+			for (var xo = 0; xo < roomWidth; xo++) {
+				this.setMap(x + xo, y + yo, MapGenerator.FLOOR_HEIGHT);
+			}
+		}
+	}
+	setMap(x, y, value) {
+		this.map[x + y * this.width] = value;
+	}
+	getMap(x, y) {
+		return this.map[x + y * this.width];
+	}
+}
+
+module.exports = MapGenerator;
+
+},{}],3:[function(require,module,exports){
+var screenW;
+var screenH;
+
+var Constants = require("./Constants");
+
+var World = require("./world/World");
+
+var MapGenerator = require("./MapGenerator");
+
+const socket = io();
+socket.on("test", function(username, room) {
+	console.log(username); //TODO remove
+	console.log(room); //TODO remove
+});
+
+const main = {
+	init: function() {
+		this.world = new World();
+		main.initMenu();
+	},
+	initMenu: function() {
+		this.menuOpacity = 1;
+		var blocker = document.getElementById("blocker");
+		var login = document.getElementById("login");
+
+		var roomIDInput = document.getElementById("roomIDInput")
+		var usernameInput = document.getElementById("usernameInput");
+		var btn = document.getElementById("playBtn");
+
+		//https://stackoverflow.com/questions/469357/html-text-input-allow-only-numeric-input
+		function setInputFilter(textbox, inputFilter) {
+			["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop"].forEach(function(event) {
+			 	textbox.addEventListener(event, function() {
+			   	if (inputFilter(this.value)) {
+			   		this.oldValue = this.value;
+			     		this.oldSelectionStart = this.selectionStart;
+			     		this.oldSelectionEnd = this.selectionEnd;
+			   	} else if (this.hasOwnProperty("oldValue")) {
+			     		this.value = this.oldValue;
+			     		this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+			   	} else {
+			     		this.value = "";
+			   	}
+			 	});
+			});
+		}
+		setInputFilter(roomIDInput, function(value) {return /^\d*\.?\d*$/.test(value);});
+
+		btn.addEventListener("click", function() {
+			if (usernameInput.value.length < 1) return;
+			main.world.player.controller.lock();
+			document.getElementById("blocker").style.opacity = 0;
+			main.menuOpacity = 1;
+
+			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
+			roomIDInput.value = "";
+			usernameInput.value = "";
+		});
+
+		this.world.player.controller.addPointUnlockListener(function() {
+			main.menuOpacity = 0;
+			console.log("?");
+		});
+	},
+	update: function(delta) {
+		this.updateSize();
+
+		this.world.adjustWindowSize(screenW, screenH);
+		this.world.update(delta);
+	},
+	render: function() {
+		if (this.menuOpacity < 1) {
+			this.menuOpacity += 0.01;
+			document.getElementById("blocker").style.opacity = this.menuOpacity;
+		}
+		this.world.render();
+	},
+	updateSize: function() {
+		screenW = window.innerWidth ||
+	   	document.documentElement.clientWidth ||
+	    	document.body.clientWidth;
+	  	screenH = window.innerHeight ||
+	    	document.documentElement.clientHeight ||
+	    	document.body.clientHeight;
+	}
+}
+
+window.onload =
+	function Game() {
+		document.body.style.marginTop = 0;
+    	document.body.style.marginLeft = 0;
+    	document.body.style.marginBottom = 0;
+    	document.body.style.marginUp = 0;
+
+		main.updateSize();
+		main.init();
+
+		var lastUpdateTime = (new Date()).getTime();
+		setInterval(function() {
+			var currentTime = (new Date()).getTime();
+			var delta = currentTime - lastUpdateTime;
+    		main.update(delta);
+    		main.render();
+			lastUpdateTime = currentTime;
+  		}, 1000 / Constants.FPS);
+  	}
+
+},{"./Constants":1,"./MapGenerator":2,"./world/World":9}],4:[function(require,module,exports){
+var PlateFrame = require("./PlateFrame");
+
+class BufferMapBlock {
+	constructor(w, e, n, s, x, y, alt, world){
+		this.west = w;
+		this.east = e;
+		this.north = n;
+		this.south = s;
+		this.centerX = x;
+		this.centerY = alt;
+		this.centerZ = y;
+
+		this.world = world;
+	}
+	static get LENGTH() {return 5;}
+	create() {
+		var length = BufferMapBlock.LENGTH;
+		var floor = new PlateFrame(this.centerX, length/2, this.centerY, 0, this.centerZ, length/2, 2 * (1 - (length - this.centerY)/length), 255/255, 255/255, this.world);
+
+		for (const vertex of floor.points) {
+			this.world.positions.push(...vertex.pos);
+			this.world.normals.push(...vertex.norm);
+			this.world.uvs.push(...vertex.uv);
+			this.world.colors.push(...vertex.color);
+		}
+		if(this.south > 0){
+			var south = new PlateFrame(this.centerX, length/2, this.centerY + this.south/2, this.south/2, this.centerZ+length/2, 0, 255/255, 0, 0, this.world);
+			for (const vertex of south.points) {
+				this.world.positions.push(...vertex.pos);
+				this.world.normals.push(...vertex.norm);
+				this.world.uvs.push(...vertex.uv);
+				this.world.colors.push(...vertex.color);
+			}
+		}
+		if(this.north > 0){
+			var north = new PlateFrame(this.centerX, length/2, this.centerY + this.north/2, this.north/2, this.centerZ-length/2, 0, 0, 255/255, 0, this.world);
+			for (const vertex of north.points) {
+				this.world.positions.push(...vertex.pos);
+				this.world.normals.push(...vertex.norm);
+				this.world.uvs.push(...vertex.uv);
+				this.world.colors.push(...vertex.color);
+			}
+		}
+		if(this.east > 0){
+			var east = new PlateFrame(this.centerX+length/2, 0, this.centerY + this.east/2, this.east/2, this.centerZ, length/2, 0, 0, 255/255, this.world);
+			for (const vertex of east.points) {
+				this.world.positions.push(...vertex.pos);
+				this.world.normals.push(...vertex.norm);
+				this.world.uvs.push(...vertex.uv);
+				this.world.colors.push(...vertex.color);
+			}
+		}
+		if(this.west > 0){
+			var west = new PlateFrame(this.centerX-length/2, 0, this.centerY + this.west/2, this.west/2, this.centerZ, length/2, 255/255, 0, 255/255, this.world);
+			this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
+			for (const vertex of west.points) {
+				this.world.positions.push(...vertex.pos);
+				this.world.normals.push(...vertex.norm);
+				this.world.uvs.push(...vertex.uv);
+				this.world.colors.push(...vertex.color);
+			}
+		}
+	}
+}
+
+module.exports = BufferMapBlock;
+
+},{"./PlateFrame":8}],5:[function(require,module,exports){
+var Entity = require("./Entity");
+var FPSController = require("./FPSController");
+
+class ClientPlayer extends Entity {
+	constructor(world, x = 0, y = 3.5, z = 0) {
+		super(x, y, z, world);
+
+		const MOVEMENT_SPEED = 0.02;
+		const TURN_SPEED = 0.001;
+
+		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+		this.camera.position.x = x;
+		this.camera.position.y = y;
+		this.camera.position.z = z;
+
+		this.controller = new FPSController(this.camera, world.renderer.domElement);
+		this.controller.speed = MOVEMENT_SPEED;
+		this.controller.turnSpeed = TURN_SPEED;
+	}
+	update(delta) {
+		this.controller.update(delta);
+	}
+	render() {
+		//TODO if the clientPlayer is renderer, it should be rendererd here
+	}
+}
+
+module.exports = ClientPlayer;
+
+},{"./Entity":6,"./FPSController":7}],6:[function(require,module,exports){
+class Entity {
+	constructor(x, y, z, world) {
+		this.xpos = x;
+		this.ypos = y;
+		this.zpos = z;
+		this.world = world;
+	}
+	update() {}
+	render() {}
+}
+
+module.exports = Entity;
+
+},{}],7:[function(require,module,exports){
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -129,330 +468,145 @@ class FPSController {
 
 module.exports = FPSController;
 
-},{}],3:[function(require,module,exports){
-class MapGenerator {
-	constructor(width, height) {
-		this.width = width;
-		this.height = height;
-
-		this.cellW = (width - 1) / 2;
-		this.cellH = (width - 1) / 2;
-	}
-	static get WALL_HEIGHT() { return 10; }
-	static get FLOOR_HEIGHT() { return 0; }
-	generate() {
-		if (this.width % 2 == 0 || this.height % 2 == 0) {
-			throw "width and height of map must be odd";
+},{}],8:[function(require,module,exports){
+class PlateFrame{
+	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
+		world.plateNum++;
+		if(halflX == 0){ // all same x coordinate
+			this.points = [
+				{ pos: [cenX, cenY-halflY,  cenZ-halflZ], norm: [ -1,  0,  0], uv: [0, 1], color: [R, G, B]},
+				{ pos: [cenX, cenY+halflY,  cenZ-halflZ], norm: [ -1,  0,  0], uv: [1, 1], color: [R, G, B]},
+				{ pos: [cenX, cenY-halflY,  cenZ+halflZ], norm: [ -1,  0,  0], uv: [0, 0], color: [R, G, B]},
+				{ pos: [cenX, cenY+halflY,  cenZ+halflZ], norm: [ -1,  0,  0], uv: [1, 0], color: [R, G, B]}
+			];
 		}
-		this.map = [];
-		for (var y = 0; y < this.height; y++) {
-			for (var x = 0; x < this.width; x++) {
-				this.setMap(x, y, MapGenerator.WALL_HEIGHT);
-			}
+		else if(halflY == 0){ // all same y coordinate
+			this.points = [
+				{ pos: [cenX-halflX, cenY,  cenZ-halflZ], norm: [ 0,  1,  0], uv: [0, 1], color: [R, G, B]},
+				{ pos: [cenX+halflX, cenY,  cenZ-halflZ], norm: [ 0,  1,  0], uv: [1, 1], color: [R, G, B]},
+				{ pos: [cenX-halflX, cenY,  cenZ+halflZ], norm: [ 0,  1,  0], uv: [0, 0], color: [R, G, B]},
+				{ pos: [cenX+halflX, cenY,  cenZ+halflZ], norm: [ 0,  1,  0], uv: [1, 0], color: [R, G, B]}
+			];
 		}
-		var randX = Math.floor(Math.random() * this.cellW);
-		var randY = Math.floor(Math.random() * this.cellH);
-		this.iterateMazeGeneration(randX, randY, []);
-
-		/*
-		var rX;
-		var rY;
-		for (var i = 0; i < 10; i++) {
-			rX = Math.floor(Math.random() * this.cellW);
-			rY = Math.floor(Math.random() * this.cellH) + (rX + 1) % 2;
-			this.setMap(rX * 2 + 1, rY * 2, MapGenerator.FLOOR_HEIGHT);
+		else if(halflZ ==0) { // all same z coordinate
+			this.points = [
+				{ pos: [cenX-halflX, cenY-halflY,  cenZ], norm: [ 0,  0,  -1], uv: [0, 1], color: [R, G, B]},
+				{ pos: [cenX+halflX, cenY-halflY,  cenZ], norm: [ 0,  0,  -1], uv: [1, 1], color: [R, G, B]},
+				{ pos: [cenX-halflX, cenY+halflY,  cenZ], norm: [ 0,  0,  -1], uv: [0, 0], color: [R, G, B]},
+				{ pos: [cenX+halflX, cenY+halflY,  cenZ], norm: [ 0,  0,  -1], uv: [1, 0], color: [R, G, B]}
+			];
 		}
-
-		for (var yi = 0; yi < this.height; yi++) {
-			for (var xi = 0; xi < this.width; xi++) {
-				if (this.getMap(xi, yi) == MapGenerator.WALL_HEIGHT) {
-					if (this.getMap(xi + 1, yi) == MapGenerator.FLOOR_HEIGHT) {
-						if (this.getMap(xi - 1, yi) == MapGenerator.FLOOR_HEIGHT) {
-							if (this.getMap(xi, yi + 1) == MapGenerator.FLOOR_HEIGHT) {
-								if (this.getMap(xi, yi - 1) == MapGenerator.FLOOR_HEIGHT) {
-									this.setMap(xi, yi, MapGenerator.FLOOR_HEIGHT);
-								}
-							}
-						}
-					}
-				}
-			}
+		else{
+			console.log("improper plate");
 		}
-
-		this.createRoom(11, 11, 7, 7);
-		*/
-
-		return this.map;
-	}
-	iterateMazeGeneration(cellX, cellY, adjacentMap) {
-		this.setMap(cellX * 2 + 1, cellY * 2 + 1, MapGenerator.FLOOR_HEIGHT);
-
-		if (cellX - 1 >= 0 && !adjacentMap.includes(cellX - 1 + cellY * this.cellW)
-			&& this.getMap((cellX - 1) * 2 + 1, cellY * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX - 1 + cellY * this.cellW);
-		if (cellX + 1 < this.cellW && !adjacentMap.includes(cellX + 1 + cellY * this.cellW)
-			&& this.getMap((cellX + 1) * 2 + 1, cellY * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + 1 + cellY * this.cellW);
-		if (cellY - 1 >= 0 && !adjacentMap.includes(cellX + (cellY - 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY - 1) * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + (cellY - 1) * this.cellW);
-		if (cellY + 1 < this.cellH && !adjacentMap.includes(cellX + (cellY + 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY + 1) * 2 + 1,) == MapGenerator.WALL_HEIGHT) adjacentMap.push(cellX + (cellY + 1) * this.cellW);
-
-		if (adjacentMap.length == 0) return;
-
-		var randNewMark = adjacentMap.splice(Math.floor(Math.random() * adjacentMap.length), 1)[0];
-		var newMarkX = randNewMark % this.cellW;
-		var newMarkY = Math.floor(randNewMark / this.cellW);
-
-		var neighbors = this.findOpenNeighbors(newMarkX, newMarkY);
-		var randNeighbor = neighbors.splice(Math.floor(Math.random() * neighbors.length), 1)[0];
-		this.setMap(((randNeighbor % this.cellW) + newMarkX) + 1, ((Math.floor(randNeighbor / this.cellW)) + newMarkY) + 1, MapGenerator.FLOOR_HEIGHT);
-
-		this.iterateMazeGeneration(newMarkX, newMarkY, adjacentMap);
-	}
-	findOpenNeighbors(cellX, cellY) {
-		var neighbors = [];
-		if (cellX - 1 >= 0
-			&& this.map[((cellX - 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX - 1 + cellY * this.cellW);
-		if (cellX + 1 < this.cellW
-			&& this.map[((cellX + 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + 1 + cellY * this.cellW);
-		if (cellY - 1 >= 0
-			&& this.map[(cellX * 2 + 1) + ((cellY - 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + (cellY - 1) * this.cellW);
-		if (cellY + 1 < this.cellH
-			&& this.map[(cellX * 2 + 1) + ((cellY + 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + (cellY + 1) * this.cellW);
-		return neighbors;
-	}
-	createRoom(x, y, roomWidth, roomHeight) {
-		if (x < 0 || x + roomWidth >= this.width || y < 0 || y + roomHeight >= this.height) {
-			throw "invalid room creation of position (" + x + "," + y + ") with width: " + roomWidth + ", height: " + roomHeight;
-		}
-		for (var yo = 0; yo < roomHeight; yo++) {
-			for (var xo = 0; xo < roomWidth; xo++) {
-				this.setMap(x + xo, y + yo, MapGenerator.FLOOR_HEIGHT);
-			}
-		}
-	}
-	setMap(x, y, value) {
-		this.map[x + y * this.width] = value;
-	}
-	getMap(x, y) {
-		return this.map[x + y * this.width];
 	}
 }
 
-module.exports = MapGenerator;
+module.exports = PlateFrame;
 
-},{}],4:[function(require,module,exports){
-var screenW;
-var screenH;
+},{}],9:[function(require,module,exports){
+var Entity = require("./Entity");
+var ClientPlayer = require("./ClientPlayer");
+var BufferMapBlock = require("./BufferMapBlock");
 
-var Constants = require("./Constants");
+var MapGenerator = require("../MapGenerator");
 
-var FPSController = require("./FPSController");
-var MapGenerator = require("./MapGenerator");
+class World {
+	constructor () {
+		//Initialize the map mesh of points
+		this.bufferMapGeom = new THREE.BufferGeometry();
+		this.positions = [];
+		this.normals = [];
+		this.uvs = [];
+		this.colors = [];
+		this.positionNumComponents = 3;
+		this.normalNumComponents = 3;
+		this.uvNumComponents = 2;
+		this.plateNum = 0;
+		this.indices = [];
 
-class Entity {
-	constructor(x, y, z) {
-		this.xpos = x;
-		this.ypos = y;
-		this.zpos = z;
-	}
-	update() {}
-	render() {}
-}
-
-class ClientPlayer extends Entity{
-	constructor(x = 0, y = 1000, z = 0) {
-		super(x, y, z);
-
-		const MOVEMENT_SPEED = 5;
-		const TURN_SPEED = 0.001;
-
-		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
-		this.camera.position.x = x;
-		this.camera.position.y = y;
-		this.camera.position.z = z;
-
-		this.controller = new FPSController(this.camera, graphics.renderer.domElement);
-		this.controller.speed = MOVEMENT_SPEED;
-		this.controller.turnSpeed = TURN_SPEED;
-		this.controller.addPointUnlockListener(function() {
-			graphics.menuOpacity = 0;
-		});
-	}
-	update(delta) {
-		this.controller.update(delta);
-	}
-	render() {
-		//TODO if the clientPlayer is renderer, it should be rendererd here
-	}
-}
-
-const socket = io();
-socket.on("test", function(username, room) {
-	console.log(username); //TODO remove
-	console.log(room); //TODO remove
-});
-
-const graphics = {
-	testMap: [],
-	mapBlock: class {
-		constructor(l, r, t, b, x, y, alt){
-      	this.left = l;
-      	this.right = r;
-         this.top = t;
-         this.bottom = b;
-         this.centerX = x;
-         this.centerY = alt;
-         this.centerZ = y;
-		}
-		static get LENGTH() {return 1000;}
-      create() {
-      	var geomTile = new THREE. BoxBufferGeometry(graphics.mapBlock.LENGTH,10,graphics.mapBlock.LENGTH);
-
-         var boxMatF = new THREE.MeshPhongMaterial();
-         var boxMatC = new THREE.MeshPhongMaterial();
-         var boxMatW = new THREE.MeshPhongMaterial({color: 0x444444});
-
-         var meshF = new THREE.Mesh(geomTile, boxMatF);
-         meshF.material.color.setHex(0x650000);
-
-         meshF.receiveShadow = true; //default
-//                meshC.material.color.setHex(0x555555);
-      	meshF.position.set(this.centerX, this.centerY, this.centerZ);
-//                meshC.position.set(this.centerX, this.centerY+graphics.mapBlock.LENGTH, this.centerZ);
-
-			if (this.left) {
-         	var meshL = new THREE.Mesh(geomTile, boxMatW);
-            meshL.castShadow = true;
-            meshL.receiveShadow = true;
-            meshL.position.set(this.centerX - graphics.mapBlock.LENGTH/2,this.centerY+graphics.mapBlock.LENGTH/2, this.centerZ);
-            meshL.rotation.z = 90*Math.PI/180;
-            graphics.scene.add(meshL);
-			}
-			if (this.right) {
-         	var meshR = new THREE.Mesh(geomTile, boxMatW);
-            meshR.castShadow = true;
-            meshR.receiveShadow = true;
-            meshR.position.set(this.centerX + graphics.mapBlock.LENGTH/2,this.centerY+graphics.mapBlock.LENGTH/2, this.centerZ);
-            meshR.rotation.z = 90*Math.PI/180;
-            graphics.scene.add(meshR);
-			}
-         if (this.top) {
-         	var meshT = new THREE.Mesh(geomTile, boxMatW);
-            meshT.castShadow = true;
-            meshT.receiveShadow = true;
-            meshT.position.set(this.centerX,this.centerY+graphics.mapBlock.LENGTH/2, this.centerZ-graphics.mapBlock.LENGTH/2);
-            meshT.rotation.x = 90*Math.PI/180;
-            graphics.scene.add(meshT);
-			}
-         if (this.bottom) {
-         	var meshB = new THREE.Mesh(geomTile, boxMatW);
-            meshB.castShadow = true;
-            meshB.receiveShadow = true;
-            meshB.position.set(this.centerX,this.centerY+graphics.mapBlock.LENGTH/2, this.centerZ+graphics.mapBlock.LENGTH/2);
-            meshB.rotation.x = 90*Math.PI/180;
-            graphics.scene.add(meshB);
-			}
-         graphics.scene.add(meshF);
-   	}
-	},
-	init: function() {
+		//Initilize the scene and renderer
 		this.scene = new THREE.Scene();
 
-		this.renderer = new THREE.WebGLRenderer();
+		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
-		this.renderer.shadowMapSoft = true; // default THREE.PCFShadowMap
 
 		document.body.appendChild(this.renderer.domElement);
 
 		this.domElement = this.renderer.domElement;
 
-		this.initMenu();
+		this.initMap();
 		this.initGame();
-	},
-	initMenu: function() {
-		this.menuOpacity = 1;
-		var blocker = document.getElementById("blocker");
-		var login = document.getElementById("login");
+	}
+	initMap() {
+		var mat = new THREE.MeshPhongMaterial({vertexColors: THREE.VertexColors, side: THREE.DoubleSide});
+		var mapMesh = new THREE.Mesh(this.bufferMapGeom, mat);
+		mapMesh.receiveShadow = true;
+		mapMesh.castShadow = false;
+		this.scene.add(mapMesh);
 
-		var roomIDInput = document.getElementById("roomIDInput")
-		var usernameInput = document.getElementById("usernameInput");
-		var btn = document.getElementById("playBtn");
-
-		//https://stackoverflow.com/questions/469357/html-text-input-allow-only-numeric-input
-		function setInputFilter(textbox, inputFilter) {
-			["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop"].forEach(function(event) {
-			 	textbox.addEventListener(event, function() {
-			   	if (inputFilter(this.value)) {
-			   		this.oldValue = this.value;
-			     		this.oldSelectionStart = this.selectionStart;
-			     		this.oldSelectionEnd = this.selectionEnd;
-			   	} else if (this.hasOwnProperty("oldValue")) {
-			     		this.value = this.oldValue;
-			     		this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
-			   	} else {
-			     		this.value = "";
-			   	}
-			 	});
-			});
-		}
-		setInputFilter(roomIDInput, function(value) {return /^\d*\.?\d*$/.test(value);});
-
-		btn.addEventListener("click", function() {
-			if (usernameInput.value.length < 1) return;
-			main.player.controller.lock();
-			document.getElementById("blocker").style.opacity = 0;
-			graphics.menuOpacity = 1;
-
-			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
-			roomIDInput.value = "";
-			usernameInput.value = "";
-		});
-	},
-	initGame: function() {
-		this.lightUp();
+		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
+		this.scene.add( ambient_light );
+	}
+	initGame() {
+		this.player = new ClientPlayer(this);
 
 		// sphere existence is good for testing
 		this.testSphere();
 
-		this.interpretMap(main.map, main.mapSize, main.mapSize);
-	},
-	render: function() {
-		if (this.menuOpacity < 1) {
-			this.menuOpacity += 0.01;
-			document.getElementById("blocker").style.opacity = this.menuOpacity;
-		}
+		this.mapSize = 11;
+		this.mapGenerator = new MapGenerator(this.mapSize, this.mapSize);
+		this.map = this.mapGenerator.generate();
+		this.interpretMap(this.map, this.mapSize, this.mapSize);
+
+		this.setUpMap();
+	}
+	adjustWindowSize(screenW, screenH) {
+		this.screenW = screenW;
+		this.screenH = screenH;
+	}
+	update(delta) {
+		this.player.update(delta);
+	}
+	render() {
 		this.renderer.setClearColor(0x0a0806, 1);
       this.renderer.setPixelRatio(window.devicePixelRatio);
 
-      this.renderer.setSize(screenW, screenH);
-      this.renderer.render(this.scene, main.player.camera);
-	},
-	lightUp: function(){
-		var light = new THREE.AmbientLight( 0x008080, 1.35 ); // soft white light
-		this.scene.add( light );
-
-		var pLight = new THREE.DirectionalLight( 0xffffff, 2.5 );
-		pLight.decay = 2;
-		pLight.position.set( 5000, 5000, 5000 );
-		pLight.castShadow = true;
-		pLight.shadow.bias = 0.0001;
+      this.renderer.setSize(this.screenW, this.screenH);
+      this.renderer.render(this.scene, this.player.camera);
+	}
+	lightUp(x, y, z) {
+		var pLight = new THREE.PointLight( 0xffffff, 0.5, BufferMapBlock.LENGTH);
+		pLight.position.set(x, y, z);
+		pLight.castShadow = false;
 		this.scene.add( pLight );
-	},
-	testSphere: function() {
-		var geometry = new THREE.SphereGeometry( 600, 50, 50 );
-      var material = new THREE.MeshStandardMaterial( {wireframe:false} );
-      var mesh = new THREE.Mesh( geometry, material );
-      mesh.material.color.setHex( 0xffff00 );
-      mesh.castShadow = true;
-      mesh.receiveShadow = false;
-      mesh.position.y = 800;
+	}
+	testSphere(){
+		var geometry = new THREE.SphereGeometry(BufferMapBlock.LENGTH/2, 50, 50 );
+		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
+		var mesh = new THREE.Mesh( geometry, material );
+		mesh.material.color.setHex( 0xffff00 );
+		mesh.castShadow = true;
+		mesh.receiveShadow = false;
+		mesh.position.y = BufferMapBlock.LENGTH*3/2;
 		this.scene.add( mesh );
-	},
-	interpretMap: function(map, width, height) {
+	}
+	setIndices(numPlates){
+		for(var k=0; k<numPlates; k++){
+//    	//var general_term = [0+4*k, 1+4*k, 2+4*k, 2+4*k, 1+4*k, 3+4*k];
+			var general_term = [2+4*k, 3+4*k, 1+4*k, 1+4*k, 0+4*k, 2+4*k];
+			this.indices = this.indices.concat(general_term);
+		}
+	}
+	setUpMap() {
+		this.setIndices(this.plateNum);
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
+	}
+	interpretMap(map, width, height) {
 		for (var y = 0; y < height; y++) {
 			for (var x = 0; x < width; x++) {
 				var l, r, t, b;
@@ -461,88 +615,32 @@ const graphics = {
 					continue;
 
 				if (y == 0) {
-					t = true;
-					b = !(map[x + (y + 1) * width]);
+					t = BufferMapBlock.LENGTH - map[x + y * width];
+					b = map[x + (y + 1) * width] - map[x + y * width];
 				} else if (y == height - 1) {
-					t = !(map[x + (y - 1) * width]);
-					b = true;
+					t = map[x + (y - 1) * width] - map[x + y * width];
+					b = BufferMapBlock.LENGTH - map[x + y * width];
 				} else {
-					t = !(map[x + (y - 1) * width]);
-					b = !(map[x + (y + 1) * width]);
+					t = map[x + (y - 1) * width] - map[x + y * width];
+					b = map[x + (y + 1) * width] - map[x + y * width];
 				}
 
 				if (x == 0) {
-					l = true;
-					r = !(map[(x + 1) + y * width]);
+					l = BufferMapBlock.LENGTH - map[x + y * width];
+					r = map[(x + 1) + y * width] - map[x + y * width];
 				} else if (x == width - 1) {
-					l = !(map[(x - 1) + y * width]);
-					r = true;
+					l = map[(x - 1) + y * width] - map[x + y * width];
+					r = BufferMapBlock.LENGTH - map[x + y * width];
 				} else {
-					l = !(map[(x - 1) + y * width]);
-					r = !(map[(x + 1) + y * width]);
+					l = map[(x - 1) + y * width] - map[x + y * width];
+					r = map[(x + 1) + y * width] - map[x + y * width];
 				}
-
-				block = new graphics.mapBlock(l, r, t, b, x*graphics.mapBlock.LENGTH, y*graphics.mapBlock.LENGTH, map[x + y * width]);
-				graphics.testMap[x + y * width] = block;
-				block.create();
+				new BufferMapBlock(l, r, t, b, x*BufferMapBlock.LENGTH, y*BufferMapBlock.LENGTH, map[x + y * width], this).create();
 			}
 		}
 	}
 }
 
-const main = {
-	init: function() {
-		this.mapSize = 51;
-		this.mapGenerator = new MapGenerator(this.mapSize, this.mapSize);
-		this.map = this.mapGenerator.generate();
+module.exports = World;
 
-		graphics.init();
-
-		this.player = new ClientPlayer();
-	},
-	update: function(delta) {
-		this.updateSize();
-
-		this.player.update(delta);
-	},
-	render: function() {
-		graphics.render();
-	},
-	updateSize: function() {
-		screenW = window.innerWidth ||
-	   	document.documentElement.clientWidth ||
-	    	document.body.clientWidth;
-	  	screenH = window.innerHeight ||
-	    	document.documentElement.clientHeight ||
-	    	document.body.clientHeight;
-			/*
-		if (graphics.do.width != screenW) {
-		   canvas.width = screenW;
-		}
-		if (canvas.height != screenH) {
-			canvas.height = screenH;
-		}*/
-	}
-}
-
-window.onload =
-	function Game() {
-		document.body.style.marginTop = 0;
-    	document.body.style.marginLeft = 0;
-    	document.body.style.marginBottom = 0;
-    	document.body.style.marginUp = 0;
-
-		main.updateSize();
-		main.init();
-
-		var lastUpdateTime = (new Date()).getTime();
-		setInterval(function() {
-			var currentTime = (new Date()).getTime();
-			var delta = currentTime - lastUpdateTime;
-    		main.update(delta);
-    		main.render();
-			lastUpdateTime = currentTime;
-  		}, 1000 / Constants.FPS);
-  	}
-
-},{"./Constants":1,"./FPSController":2,"./MapGenerator":3}]},{},[4]);
+},{"../MapGenerator":2,"./BufferMapBlock":4,"./ClientPlayer":5,"./Entity":6}]},{},[3]);
