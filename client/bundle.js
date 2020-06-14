@@ -133,8 +133,6 @@ var Constants = require("./Constants");
 
 var World = require("./world/World");
 
-var MapGenerator = require("./MapGenerator");
-
 const socket = io();
 socket.on("test", function(username, room) {
 	console.log(username); //TODO remove
@@ -233,7 +231,7 @@ window.onload =
   		}, 1000 / Constants.FPS);
   	}
 
-},{"./Constants":1,"./MapGenerator":2,"./world/World":9}],4:[function(require,module,exports){
+},{"./Constants":1,"./world/World":9}],4:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 
 class BufferMapBlock {
@@ -573,6 +571,7 @@ class World {
       this.renderer.setPixelRatio(window.devicePixelRatio);
 
       this.renderer.setSize(this.screenW, this.screenH);
+		this.renderer.compile(this.scene, this.player.camera);
       this.renderer.render(this.scene, this.player.camera);
 	}
 	lightUp(x, y, z) {

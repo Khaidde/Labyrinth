@@ -5,8 +5,6 @@ var Constants = require("./Constants");
 
 var World = require("./world/World");
 
-var MapGenerator = require("./MapGenerator");
-
 const socket = io();
 socket.on("test", function(username, room) {
 	console.log(username); //TODO remove

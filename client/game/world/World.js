@@ -66,6 +66,7 @@ class World {
       this.renderer.setPixelRatio(window.devicePixelRatio);
 
       this.renderer.setSize(this.screenW, this.screenH);
+		this.renderer.compile(this.scene, this.player.camera);
       this.renderer.render(this.scene, this.player.camera);
 	}
 	lightUp(x, y, z) {
