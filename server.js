@@ -27,10 +27,11 @@ server.listen(PORT, function() {
 	console.log("Starting server on port: " + PORT);
 });
 
-function removeSocket(socketID) {
+function removeSocket(socket) {
+	var socketID = socket.id;
 	var roomID = clientToRoomMap.get(socketID);
 	var room = rooms.get(roomID);
-	room.removePlayer(socketID);
+	room.removePlayer(socket);
 
 	clientToRoomMap.delete(socketID);
 	if (room.size == 0) {
@@ -40,23 +41,27 @@ function removeSocket(socketID) {
 
 io.on("connection", function(socket) {
 	socket.on(Constants.SOCKET_PLAYER_LOGIN, function(roomID, username) {
-		if (clientToRoomMap.has(socket.id)) removeSocket(socket.id);
+		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 
 		if (roomID == "") roomID = Math.floor(Math.random() * Math.pow(10, ROOM_ID_MAX_LENGTH)) + "";
 		socket.join(roomID);
 		clientToRoomMap.set(socket.id, roomID);
 		var room;
 		if (!rooms.has(roomID)) {
-			room = new Room(roomID);
+			room = new Room(roomID, io);
 			rooms.set(roomID, room);
 		} else {
 			room = rooms.get(roomID);
 		}
-		room.addPlayer(username, socket.id);
-		socket.emit("test", roomID, username); //TODO remove
+		room.addPlayer(username, socket);
+	});
+	socket.on(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y) {
+		var roomID = clientToRoomMap.get(socket.id);
+		var room = rooms.get(roomID);
+		room.updatePlayerPosition(x, y, z, rot_x, rot_y, socket.id);
 	});
 	socket.on("disconnect", function() {
-		if (clientToRoomMap.has(socket.id)) removeSocket(socket.id);
+		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 	});
 });
 

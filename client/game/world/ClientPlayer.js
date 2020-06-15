@@ -1,3 +1,5 @@
+var Constants = require("../Constants");
+
 var Entity = require("./Entity");
 var FPSController = require("./FPSController");
 
@@ -16,12 +18,13 @@ class ClientPlayer extends Entity {
 		this.controller = new FPSController(this.camera, world.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
+
+		this.controller.addPoseChangeListener((pos, rot) => {
+			world.socket.emit(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, pos.x, pos.y, pos.z, rot.x, rot.y);
+		});
 	}
 	update(delta) {
 		this.controller.update(delta);
-	}
-	render() {
-		//TODO if the clientPlayer is renderer, it should be rendererd here
 	}
 }
 

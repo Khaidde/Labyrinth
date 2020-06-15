@@ -6,14 +6,9 @@ var Constants = require("./Constants");
 var World = require("./world/World");
 
 const socket = io();
-socket.on("test", function(username, room) {
-	console.log(username); //TODO remove
-	console.log(room); //TODO remove
-});
 
 const main = {
 	init: function() {
-		this.world = new World();
 		main.initMenu();
 	},
 	initMenu: function() {
@@ -46,32 +41,42 @@ const main = {
 
 		btn.addEventListener("click", function() {
 			if (usernameInput.value.length < 1) return;
-			main.world.player.controller.lock();
 			document.getElementById("blocker").style.opacity = 0;
 			main.menuOpacity = 1;
 
 			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
 			roomIDInput.value = "";
 			usernameInput.value = "";
+			if (main.world != undefined) {
+				main.world.dispose();
+				main.world = null;
+			}
 		});
 
-		this.world.player.controller.addPointUnlockListener(function() {
-			main.menuOpacity = 0;
-			console.log("?");
+		socket.on(Constants.INITIALIZE_MAP, function(map, width, height) {
+			main.world = new World(map, width, height, socket);
+			main.world.player.controller.addPointUnlockListener(function() {
+				main.menuOpacity = 0;
+			});
+			main.world.player.controller.lock();
 		});
 	},
 	update: function(delta) {
 		this.updateSize();
 
-		this.world.adjustWindowSize(screenW, screenH);
-		this.world.update(delta);
+		if (this.world != undefined) {
+			this.world.adjustWindowSize(screenW, screenH);
+			this.world.update(delta);
+		}
 	},
 	render: function() {
 		if (this.menuOpacity < 1) {
 			this.menuOpacity += 0.01;
 			document.getElementById("blocker").style.opacity = this.menuOpacity;
 		}
-		this.world.render();
+		if (this.world != undefined) {
+			this.world.render();
+		}
 	},
 	updateSize: function() {
 		screenW = window.innerWidth ||

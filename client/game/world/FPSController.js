@@ -27,7 +27,16 @@ class FPSController {
 
 		this.initEvents();
 	}
+	dispose() {
+		this.camera = null;
+		this.enabled = false;
+	}
+	addPoseChangeListener(callback) {
+		this.onPoseChange = callback;
+	}
 	initEvents() {
+		this.enabled = true;
+
 		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
 
 		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
@@ -35,7 +44,7 @@ class FPSController {
 		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
 
 		function bind(scope, fn) {
-			return function() {
+			return function onEvent() {
 				fn.apply(scope, arguments);
 			};
 		};
@@ -47,6 +56,7 @@ class FPSController {
 		this.unlockCallback = callback;
 	}
 	onPointerlockChange() {
+		if (!this.enabled) return;
 		if (document.pointerLockElement === this.domElement) {
 			this.lockCallback();
 		} else {
@@ -54,6 +64,7 @@ class FPSController {
 		}
 	}
 	onMouseMove(event) {
+		if (!this.enabled) return;
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
 		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
@@ -65,8 +76,11 @@ class FPSController {
 		this.euler.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.euler.x));
 
 		this.camera.quaternion.setFromEuler(this.euler);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	onKeyDown(event) {
+		if (!this.enabled) return;
 		switch(event.keyCode) {
 			case 87: /*W*/ this.moveForward = true; break;
 			case 65: /*A*/ this.moveLeft = true; break;
@@ -78,6 +92,7 @@ class FPSController {
 		}
 	}
 	onKeyUp(event) {
+		if (!this.enabled) return;
 		switch(event.keyCode) {
 			case 87: /*W*/ this.moveForward = false; break;
 			case 65: /*A*/ this.moveLeft = false; break;
@@ -92,13 +107,19 @@ class FPSController {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.vec.crossVectors(this.camera.up, this.vec);
 		this.camera.position.addScaledVector(this.vec, distance);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	moveCamRight(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.camera.position.addScaledVector(this.vec, distance);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	moveCamUp(distance) {
 		this.camera.position.y += distance;
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	update(delta) {
 		if (this.moveForward && !this.moveBackward) this.moveCamForward(this.speed * delta);

@@ -1,131 +1,17 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
-	SOCKET_PLAYER_LOGIN: "socket_player_login"
+	SOCKET_PLAYER_LOGIN: "socket_player_login",
+	INITIALIZE_MAP: "init_map",
+	ADD_PLAYER: "new_player",
+	REMOVE_PLAYER: "remove_player",
+	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
+	SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION: "server_update_player_pos"
 }
 
 module.exports = Constants;
 
 },{}],2:[function(require,module,exports){
-class MapGenerator {
-	constructor(width, height) {
-		this.width = width;
-		this.height = height;
-
-		this.cellW = (width - 1) / 2;
-		this.cellH = (width - 1) / 2;
-	}
-	static get WALL_HEIGHT() { return 5; }
-	static get FLOOR_HEIGHT() { return 0; }
-	generate() {
-		this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
-
-
-		if (this.width % 2 == 0 || this.height % 2 == 0) {
-			throw "width and height of map must be odd";
-		}
-		this.map = [];
-		for (var y = 0; y < this.height; y++) {
-			for (var x = 0; x < this.width; x++) {
-				this.randH = Math.random() * MapGenerator.WALL_HEIGHT;
-				this.setMap(x, y, this.randH);
-			}
-		}
-		var randX = Math.floor(Math.random() * this.cellW);
-		var randY = Math.floor(Math.random() * this.cellH);
-		this.iterateMazeGeneration(randX, randY, []);
-
-		/*
-		var rX;
-		var rY;
-		for (var i = 0; i < 10; i++) {
-			rX = Math.floor(Math.random() * this.cellW);
-			rY = Math.floor(Math.random() * this.cellH) + (rX + 1) % 2;
-			this.setMap(rX * 2 + 1, rY * 2, MapGenerator.FLOOR_HEIGHT);
-		}
-
-		for (var yi = 0; yi < this.height; yi++) {
-			for (var xi = 0; xi < this.width; xi++) {
-				if (this.getMap(xi, yi) == MapGenerator.WALL_HEIGHT) {
-					if (this.getMap(xi + 1, yi) == MapGenerator.FLOOR_HEIGHT) {
-						if (this.getMap(xi - 1, yi) == MapGenerator.FLOOR_HEIGHT) {
-							if (this.getMap(xi, yi + 1) == MapGenerator.FLOOR_HEIGHT) {
-								if (this.getMap(xi, yi - 1) == MapGenerator.FLOOR_HEIGHT) {
-									this.setMap(xi, yi, MapGenerator.FLOOR_HEIGHT);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		this.createRoom(11, 11, 7, 7);
-		*/
-
-		return this.map;
-	}
-	iterateMazeGeneration(cellX, cellY, adjacentMap) {
-		this.setMap(cellX * 2 + 1, cellY * 2 + 1, MapGenerator.FLOOR_HEIGHT);
-
-		if (cellX - 1 >= 0 && !adjacentMap.includes(cellX - 1 + cellY * this.cellW)
-			&& this.getMap((cellX - 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX - 1 + cellY * this.cellW);
-		if (cellX + 1 < this.cellW && !adjacentMap.includes(cellX + 1 + cellY * this.cellW)
-			&& this.getMap((cellX + 1) * 2 + 1, cellY * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + 1 + cellY * this.cellW);
-		if (cellY - 1 >= 0 && !adjacentMap.includes(cellX + (cellY - 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY - 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY - 1) * this.cellW);
-		if (cellY + 1 < this.cellH && !adjacentMap.includes(cellX + (cellY + 1) * this.cellW)
-			&& this.getMap(cellX * 2 + 1, (cellY + 1) * 2 + 1,) != MapGenerator.FLOOR_HEIGHT) adjacentMap.push(cellX + (cellY + 1) * this.cellW);
-
-		if (adjacentMap.length == 0) return;
-
-		var randNewMark = adjacentMap.splice(Math.floor(Math.random() * adjacentMap.length), 1)[0];
-		var newMarkX = randNewMark % this.cellW;
-		var newMarkY = Math.floor(randNewMark / this.cellW);
-
-		var neighbors = this.findOpenNeighbors(newMarkX, newMarkY);
-		var randNeighbor = neighbors.splice(Math.floor(Math.random() * neighbors.length), 1)[0];
-		this.setMap(((randNeighbor % this.cellW) + newMarkX) + 1, ((Math.floor(randNeighbor / this.cellW)) + newMarkY) + 1, MapGenerator.FLOOR_HEIGHT);
-
-		this.iterateMazeGeneration(newMarkX, newMarkY, adjacentMap);
-	}
-	findOpenNeighbors(cellX, cellY) {
-		var neighbors = [];
-		if (cellX - 1 >= 0
-			&& this.map[((cellX - 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX - 1 + cellY * this.cellW);
-		if (cellX + 1 < this.cellW
-			&& this.map[((cellX + 1) * 2 + 1) + (cellY * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + 1 + cellY * this.cellW);
-		if (cellY - 1 >= 0
-			&& this.map[(cellX * 2 + 1) + ((cellY - 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + (cellY - 1) * this.cellW);
-		if (cellY + 1 < this.cellH
-			&& this.map[(cellX * 2 + 1) + ((cellY + 1) * 2 + 1) * this.width] == MapGenerator.FLOOR_HEIGHT)
-			neighbors.push(cellX + (cellY + 1) * this.cellW);
-		return neighbors;
-	}
-	createRoom(x, y, roomWidth, roomHeight) {
-		if (x < 0 || x + roomWidth >= this.width || y < 0 || y + roomHeight >= this.height) {
-			throw "invalid room creation of position (" + x + "," + y + ") with width: " + roomWidth + ", height: " + roomHeight;
-		}
-		for (var yo = 0; yo < roomHeight; yo++) {
-			for (var xo = 0; xo < roomWidth; xo++) {
-				this.setMap(x + xo, y + yo, MapGenerator.FLOOR_HEIGHT);
-			}
-		}
-	}
-	setMap(x, y, value) {
-		this.map[x + y * this.width] = value;
-	}
-	getMap(x, y) {
-		return this.map[x + y * this.width];
-	}
-}
-
-module.exports = MapGenerator;
-
-},{}],3:[function(require,module,exports){
 var screenW;
 var screenH;
 
@@ -134,14 +20,9 @@ var Constants = require("./Constants");
 var World = require("./world/World");
 
 const socket = io();
-socket.on("test", function(username, room) {
-	console.log(username); //TODO remove
-	console.log(room); //TODO remove
-});
 
 const main = {
 	init: function() {
-		this.world = new World();
 		main.initMenu();
 	},
 	initMenu: function() {
@@ -174,32 +55,42 @@ const main = {
 
 		btn.addEventListener("click", function() {
 			if (usernameInput.value.length < 1) return;
-			main.world.player.controller.lock();
 			document.getElementById("blocker").style.opacity = 0;
 			main.menuOpacity = 1;
 
 			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
 			roomIDInput.value = "";
 			usernameInput.value = "";
+			if (main.world != undefined) {
+				main.world.dispose();
+				main.world = null;
+			}
 		});
 
-		this.world.player.controller.addPointUnlockListener(function() {
-			main.menuOpacity = 0;
-			console.log("?");
+		socket.on(Constants.INITIALIZE_MAP, function(map, width, height) {
+			main.world = new World(map, width, height, socket);
+			main.world.player.controller.addPointUnlockListener(function() {
+				main.menuOpacity = 0;
+			});
+			main.world.player.controller.lock();
 		});
 	},
 	update: function(delta) {
 		this.updateSize();
 
-		this.world.adjustWindowSize(screenW, screenH);
-		this.world.update(delta);
+		if (this.world != undefined) {
+			this.world.adjustWindowSize(screenW, screenH);
+			this.world.update(delta);
+		}
 	},
 	render: function() {
 		if (this.menuOpacity < 1) {
 			this.menuOpacity += 0.01;
 			document.getElementById("blocker").style.opacity = this.menuOpacity;
 		}
-		this.world.render();
+		if (this.world != undefined) {
+			this.world.render();
+		}
 	},
 	updateSize: function() {
 		screenW = window.innerWidth ||
@@ -231,7 +122,7 @@ window.onload =
   		}, 1000 / Constants.FPS);
   	}
 
-},{"./Constants":1,"./world/World":9}],4:[function(require,module,exports){
+},{"./Constants":1,"./world/World":9}],3:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 
 class BufferMapBlock {
@@ -250,6 +141,9 @@ class BufferMapBlock {
 	create() {
 		var length = BufferMapBlock.LENGTH;
 		var floor = new PlateFrame(this.centerX, length/2, this.centerY, 0, this.centerZ, length/2, 2 * (1 - (length - this.centerY)/length), 255/255, 255/255, this.world);
+		var plateNum = this.world.plateNum;
+		var general_term = [2+4*(plateNum-1), 3+4*(plateNum-1), 1+4*(plateNum-1), 1+4*(plateNum-1), 0+4*(plateNum-1), 2+4*(plateNum-1)];
+		this.world.indices = this.world.indices.concat(general_term);
 
 		for (const vertex of floor.points) {
 			this.world.positions.push(...vertex.pos);
@@ -259,6 +153,9 @@ class BufferMapBlock {
 		}
 		if(this.south > 0){
 			var south = new PlateFrame(this.centerX, length/2, this.centerY + this.south/2, this.south/2, this.centerZ+length/2, 0, 255/255, 0, 0, this.world);
+			plateNum = this.world.plateNum;
+			general_term = [2+4*(plateNum-1), 3+4*(plateNum-1), 1+4*(plateNum-1), 1+4*(plateNum-1), 0+4*(plateNum-1), 2+4*(plateNum-1)];
+         this.world.indices = this.world.indices.concat(general_term);
 			for (const vertex of south.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -268,6 +165,9 @@ class BufferMapBlock {
 		}
 		if(this.north > 0){
 			var north = new PlateFrame(this.centerX, length/2, this.centerY + this.north/2, this.north/2, this.centerZ-length/2, 0, 0, 255/255, 0, this.world);
+			plateNum = this.world.plateNum;
+			general_term = [0+4*(plateNum-1), 1+4*(plateNum-1), 2+4*(plateNum-1), 2+4*(plateNum-1), 1+4*(plateNum-1), 3+4*(plateNum-1)];
+         this.world.indices = this.world.indices.concat(general_term);
 			for (const vertex of north.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -277,6 +177,9 @@ class BufferMapBlock {
 		}
 		if(this.east > 0){
 			var east = new PlateFrame(this.centerX+length/2, 0, this.centerY + this.east/2, this.east/2, this.centerZ, length/2, 0, 0, 255/255, this.world);
+			plateNum = this.world.plateNum;
+			general_term = [2+4*(plateNum-1), 3+4*(plateNum-1), 1+4*(plateNum-1), 1+4*(plateNum-1), 0+4*(plateNum-1), 2+4*(plateNum-1)];
+         this.world.indices = this.world.indices.concat(general_term);
 			for (const vertex of east.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -286,7 +189,10 @@ class BufferMapBlock {
 		}
 		if(this.west > 0){
 			var west = new PlateFrame(this.centerX-length/2, 0, this.centerY + this.west/2, this.west/2, this.centerZ, length/2, 255/255, 0, 255/255, this.world);
-			this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
+			plateNum = this.world.plateNum;
+			general_term = [0+4*(plateNum-1), 1+4*(plateNum-1), 2+4*(plateNum-1), 2+4*(plateNum-1), 1+4*(plateNum-1), 3+4*(plateNum-1)];
+			this.world.indices = this.world.indices.concat(general_term);
+			//this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
 			for (const vertex of west.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -299,7 +205,9 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"./PlateFrame":8}],5:[function(require,module,exports){
+},{"./PlateFrame":8}],4:[function(require,module,exports){
+var Constants = require("../Constants");
+
 var Entity = require("./Entity");
 var FPSController = require("./FPSController");
 
@@ -318,18 +226,19 @@ class ClientPlayer extends Entity {
 		this.controller = new FPSController(this.camera, world.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
+
+		this.controller.addPoseChangeListener((pos, rot) => {
+			world.socket.emit(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, pos.x, pos.y, pos.z, rot.x, rot.y);
+		});
 	}
 	update(delta) {
 		this.controller.update(delta);
-	}
-	render() {
-		//TODO if the clientPlayer is renderer, it should be rendererd here
 	}
 }
 
 module.exports = ClientPlayer;
 
-},{"./Entity":6,"./FPSController":7}],6:[function(require,module,exports){
+},{"../Constants":1,"./Entity":5,"./FPSController":6}],5:[function(require,module,exports){
 class Entity {
 	constructor(x, y, z, world) {
 		this.xpos = x;
@@ -343,7 +252,7 @@ class Entity {
 
 module.exports = Entity;
 
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -373,7 +282,16 @@ class FPSController {
 
 		this.initEvents();
 	}
+	dispose() {
+		this.camera = null;
+		this.enabled = false;
+	}
+	addPoseChangeListener(callback) {
+		this.onPoseChange = callback;
+	}
 	initEvents() {
+		this.enabled = true;
+
 		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
 
 		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
@@ -381,7 +299,7 @@ class FPSController {
 		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
 
 		function bind(scope, fn) {
-			return function() {
+			return function onEvent() {
 				fn.apply(scope, arguments);
 			};
 		};
@@ -393,6 +311,7 @@ class FPSController {
 		this.unlockCallback = callback;
 	}
 	onPointerlockChange() {
+		if (!this.enabled) return;
 		if (document.pointerLockElement === this.domElement) {
 			this.lockCallback();
 		} else {
@@ -400,6 +319,7 @@ class FPSController {
 		}
 	}
 	onMouseMove(event) {
+		if (!this.enabled) return;
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
 		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
@@ -411,8 +331,11 @@ class FPSController {
 		this.euler.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.euler.x));
 
 		this.camera.quaternion.setFromEuler(this.euler);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	onKeyDown(event) {
+		if (!this.enabled) return;
 		switch(event.keyCode) {
 			case 87: /*W*/ this.moveForward = true; break;
 			case 65: /*A*/ this.moveLeft = true; break;
@@ -424,6 +347,7 @@ class FPSController {
 		}
 	}
 	onKeyUp(event) {
+		if (!this.enabled) return;
 		switch(event.keyCode) {
 			case 87: /*W*/ this.moveForward = false; break;
 			case 65: /*A*/ this.moveLeft = false; break;
@@ -438,13 +362,19 @@ class FPSController {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.vec.crossVectors(this.camera.up, this.vec);
 		this.camera.position.addScaledVector(this.vec, distance);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	moveCamRight(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.camera.position.addScaledVector(this.vec, distance);
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	moveCamUp(distance) {
 		this.camera.position.y += distance;
+
+		this.onPoseChange(this.camera.position, this.euler);
 	}
 	update(delta) {
 		if (this.moveForward && !this.moveBackward) this.moveCamForward(this.speed * delta);
@@ -466,7 +396,40 @@ class FPSController {
 
 module.exports = FPSController;
 
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
+var Entity = require("./Entity");
+
+class OpponentPlayer extends Entity {
+	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
+		super(x, y, z, world);
+		this.name = name;
+		this.socketID = socketID;
+
+		var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+		var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+		this.cube = new THREE.Mesh(geometry, material);
+		this.cube.position.x = x;
+		this.cube.position.y = y;
+		this.cube.position.z = z;
+		this.world.scene.add(this.cube);
+	}
+	updatePlayerPose(x, y, z, rot_x, rot_y) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.rot_x = rot_x;
+		this.rot_y = rot_y;
+
+		this.cube.position.x = x;
+		this.cube.position.y = y;
+		this.cube.position.z = z;
+		console.log(this.cube);
+	}
+}
+
+module.exports = OpponentPlayer;
+
+},{"./Entity":5}],8:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -503,14 +466,15 @@ class PlateFrame{
 module.exports = PlateFrame;
 
 },{}],9:[function(require,module,exports){
+var Constants = require("../Constants");
+
 var Entity = require("./Entity");
 var ClientPlayer = require("./ClientPlayer");
+var OpponentPlayer = require("./OpponentPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
-var MapGenerator = require("../MapGenerator");
-
 class World {
-	constructor () {
+	constructor (map, width, height, socket) {
 		//Initialize the map mesh of points
 		this.bufferMapGeom = new THREE.BufferGeometry();
 		this.positions = [];
@@ -529,35 +493,70 @@ class World {
 		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
 
-		document.body.appendChild(this.renderer.domElement);
-
 		this.domElement = this.renderer.domElement;
+		document.body.appendChild(this.domElement);
 
-		this.initMap();
-		this.initGame();
+		this.initMap(map, width, height);
+
+		this.socket = socket;
+		var self = this;
+		socket.on(Constants.ADD_PLAYER, function(x, y, z, rot_x, rot_y, name, socketID) {
+			var opponentPlayer = new OpponentPlayer(self, x, y, z, rot_x, rot_y, name, socketID);
+			self.addOpponentPlayer(opponentPlayer);
+			console.log(name + " has joined!");
+		});
+		socket.on(Constants.REMOVE_PLAYER, function(socketID) {
+			console.log(self.opponentPlayers.get(socketID).name + " has left!");
+			self.removeOpponentPlayer(socketID);
+		});
+		socket.on(Constants.SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y, socketID) {
+			if (socketID == socket.id) return;
+			self.opponentPlayers.get(socketID).updatePlayerPose(x, y, z, rot_x, rot_y);
+		});
 	}
-	initMap() {
-		var mat = new THREE.MeshPhongMaterial({vertexColors: THREE.VertexColors, side: THREE.DoubleSide});
+	dispose() {
+		this.bufferMapGeom.dispose();
+		this.player.controller.dispose();
+		this.scene.dispose();
+		this.domElement.parentElement.removeChild(this.domElement);
+	}
+	initMap(map, width, height) {
+		//Map mesh
+		var mat = new THREE.MeshPhongMaterial({vertexColors: THREE.VertexColors, side: THREE.FrontSide});
 		var mapMesh = new THREE.Mesh(this.bufferMapGeom, mat);
 		mapMesh.receiveShadow = true;
 		mapMesh.castShadow = false;
 		this.scene.add(mapMesh);
+		this.map = map;
+		this.interpretMap(map, width, height);
+		this.setUpMap();
 
+		//Ambient lighting
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
 		this.scene.add( ambient_light );
-	}
-	initGame() {
+
+		//Add player
 		this.player = new ClientPlayer(this);
+		this.opponentPlayers = new Map();
 
-		// sphere existence is good for testing
 		this.testSphere();
-
-		this.mapSize = 5;
-		this.mapGenerator = new MapGenerator(this.mapSize, this.mapSize);
-		this.map = this.mapGenerator.generate();
-		this.interpretMap(this.map, this.mapSize, this.mapSize);
-
-		this.setUpMap();
+	}
+	addOpponentPlayer(opponentPlayer) {
+		var socketID = opponentPlayer.socketID;
+		if (!this.opponentPlayers.has(socketID)) {
+			this.opponentPlayers.set(socketID, opponentPlayer);
+			this.size++;
+		} else {
+			throw "player {" + socketID + "} already exists";
+		}
+	}
+	removeOpponentPlayer(socketID) {
+		if (this.opponentPlayers.has(socketID)) {
+      	this.opponentPlayers.delete(socketID);
+			this.size--;
+   	} else {
+			throw "player {" + socketID + "} does not exist and can't be removed";
+		}
 	}
 	adjustWindowSize(screenW, screenH) {
 		this.screenW = screenW;
@@ -571,7 +570,6 @@ class World {
       this.renderer.setPixelRatio(window.devicePixelRatio);
 
       this.renderer.setSize(this.screenW, this.screenH);
-		this.renderer.compile(this.scene, this.player.camera);
       this.renderer.render(this.scene, this.player.camera);
 	}
 	lightUp(x, y, z) {
@@ -590,15 +588,7 @@ class World {
 		mesh.position.y = BufferMapBlock.LENGTH*3/2;
 		this.scene.add( mesh );
 	}
-	setIndices(numPlates){
-		for(var k=0; k<numPlates; k++){
-//    	//var general_term = [0+4*k, 1+4*k, 2+4*k, 2+4*k, 1+4*k, 3+4*k];
-			var general_term = [2+4*k, 3+4*k, 1+4*k, 1+4*k, 0+4*k, 2+4*k];
-			this.indices = this.indices.concat(general_term);
-		}
-	}
 	setUpMap() {
-		this.setIndices(this.plateNum);
 		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
 		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
 		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
@@ -642,4 +632,4 @@ class World {
 
 module.exports = World;
 
-},{"../MapGenerator":2,"./BufferMapBlock":4,"./ClientPlayer":5,"./Entity":6}]},{},[3]);
+},{"../Constants":1,"./BufferMapBlock":3,"./ClientPlayer":4,"./Entity":5,"./OpponentPlayer":7}]},{},[2]);
