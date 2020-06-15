@@ -84,6 +84,7 @@ class World {
 	}
 	removeOpponentPlayer(socketID) {
 		if (this.opponentPlayers.has(socketID)) {
+			this.scene.remove(this.opponentPlayers.get(socketID).model);
       	this.opponentPlayers.delete(socketID);
 			this.size--;
    	} else {

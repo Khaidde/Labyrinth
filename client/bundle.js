@@ -407,11 +407,11 @@ class OpponentPlayer extends Entity {
 
 		var geometry = new THREE.BoxGeometry( 1, 1, 1 );
 		var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
-		this.cube = new THREE.Mesh(geometry, material);
-		this.cube.position.x = x;
-		this.cube.position.y = y;
-		this.cube.position.z = z;
-		this.world.scene.add(this.cube);
+		this.model = new THREE.Mesh(geometry, material);
+		this.model.position.x = x;
+		this.model.position.y = y;
+		this.model.position.z = z;
+		this.world.scene.add(this.model);
 	}
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.x = x;
@@ -420,10 +420,9 @@ class OpponentPlayer extends Entity {
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
 
-		this.cube.position.x = x;
-		this.cube.position.y = y;
-		this.cube.position.z = z;
-		console.log(this.cube);
+		this.model.position.x = x;
+		this.model.position.y = y;
+		this.model.position.z = z;
 	}
 }
 
@@ -552,6 +551,7 @@ class World {
 	}
 	removeOpponentPlayer(socketID) {
 		if (this.opponentPlayers.has(socketID)) {
+			this.scene.remove(this.opponentPlayers.get(socketID).model);
       	this.opponentPlayers.delete(socketID);
 			this.size--;
    	} else {
