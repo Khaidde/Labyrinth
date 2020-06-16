@@ -423,8 +423,8 @@ class OpponentPlayer extends Entity {
 		this.usernameLoad(this.name);
 	}
 	dispose() {
-		this.scene.remove(this.model);
-		this.scene.remove(this.textMesh);
+		this.world.scene.remove(this.model);
+		this.world.scene.remove(this.textMesh);
 	}
 	usernameLoad(username){
    	var textLoad = new THREE.FontLoader();
