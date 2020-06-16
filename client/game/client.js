@@ -41,7 +41,11 @@ const main = {
 
 		btn.addEventListener("click", function() {
 			if (usernameInput.value.length < 1) return;
-			document.getElementById("blocker").style.opacity = 0;
+			blocker.style.opacity = 0;
+			document.getElementById("menu").disabled = true;
+			roomIDInput.disabled = true;
+			usernameInput.disabled = true;
+			btn.disabled = true;
 			main.menuOpacity = 1;
 
 			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
@@ -56,7 +60,9 @@ const main = {
 		socket.on(Constants.INITIALIZE_MAP, function(map, width, height) {
 			main.world = new World(map, width, height, socket);
 			main.world.player.controller.addPointUnlockListener(function() {
-				main.menuOpacity = 0;
+				main.world.player.controller.enabled = false;
+				document.getElementById("blocker2").style.opacity = 1;
+				//main.menuOpacity = 0;
 			});
 			main.world.player.controller.lock();
 		});
