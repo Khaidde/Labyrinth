@@ -409,7 +409,7 @@ class OpponentPlayer extends Entity {
 		var geometry = new THREE.BoxGeometry( size, size, size );
 		var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
 
-		usernameLoad(this.name);
+		textLoad(this.name);
 
 		this.model = new THREE.Mesh(geometry, material);
 		this.model.position.x = x;
