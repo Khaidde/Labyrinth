@@ -13,7 +13,32 @@ class OpponentPlayer extends Entity {
 		this.model.position.y = y;
 		this.model.position.z = z;
 		this.world.scene.add(this.model);
+
+		usernameLoad(this.name);
 	}
+	usernameLoad(username){
+      var textLoad = new THREE.FontLoader();
+      var textGeom;
+      textLoad.load( '../Aldo the Apache_Regular.json', function ( font ) {
+          textGeom = new THREE.TextBufferGeometry( username, {
+              font: font,
+              size: length/(2*username.length),
+              height: 0.1,
+              curveSegments: 12,
+              bevelEnabled: false,
+//                    bevelThickness: length/2,
+//                    bevelSize: length/3,
+//                    bevelOffset: 0,
+//                    bevelSegments: 5
+          } );
+          var textMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff });
+          textMesh = new THREE.Mesh(textGeom, textMat);
+          textMesh.position.x = 3*length;
+          textMesh.position.y = 2*length;
+          textMesh.position.z = 4*length;
+          this.world.scene.add(textMesh);
+      } );
+  }
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.x = x;
 		this.y = y;
