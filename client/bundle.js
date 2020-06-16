@@ -435,7 +435,7 @@ class OpponentPlayer extends Entity {
         textMesh.position.z = this.model.position.z;
         scene.add(textMesh);
     } );
-
+	}
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.x = x;
 		this.y = y;
