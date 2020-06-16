@@ -21,9 +21,6 @@ class ClientPlayer extends Entity {
 
 		this.controller.addPoseChangeListener((pos, rot) => {
 			world.socket.emit(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, pos.x, pos.y, pos.z, rot.x, rot.y);
-			world.opponentPlayers.forEach((oPlayer) => {
-          oPlayer.updatePlayerName();
-      });
 		});
 	}
 	update(delta) {

@@ -84,7 +84,7 @@ class World {
 	}
 	removeOpponentPlayer(socketID) {
 		if (this.opponentPlayers.has(socketID)) {
-			this.scene.remove(this.opponentPlayers.get(socketID).model);
+			this.opponentPlayers.get(socketID).dispose();
       	this.opponentPlayers.delete(socketID);
 			this.size--;
    	} else {
@@ -97,6 +97,9 @@ class World {
 	}
 	update(delta) {
 		this.player.update(delta);
+		this.opponentPlayers.forEach((oPlayer) => {
+			oPlayer.updatePlayerName();
+		});
 	}
 	render() {
 		this.renderer.setClearColor(0x0a0806, 1);

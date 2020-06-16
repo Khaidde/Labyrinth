@@ -17,29 +17,33 @@ class OpponentPlayer extends Entity {
 
 		this.usernameLoad(this.name);
 	}
+	dispose() {
+		this.scene.remove(this.model);
+		this.scene.remove(this.textMesh);
+	}
 	usernameLoad(username){
-      var textLoad = new THREE.FontLoader();
+   	var textLoad = new THREE.FontLoader();
       var textGeom;
-			var self = this;
+		var self = this;
       textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
-          textGeom = new THREE.TextBufferGeometry( username, {
-              font: font,
-              size: BufferMapBlock.LENGTH/(3*username.length),
-              height: 0.1,
-              curveSegments: 12,
-              bevelEnabled: false,
-          } );
-          var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff});
-					textGeom.center();
-          self.textMesh = new THREE.Mesh(textGeom, textMat);
+      	textGeom = new THREE.TextBufferGeometry( username, {
+         	font: font,
+            size: BufferMapBlock.LENGTH/(3*username.length),
+            height: 0.1,
+            curveSegments: 12,
+            bevelEnabled: false,
+   		});
+         var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff});
+			textGeom.center();
+         self.textMesh = new THREE.Mesh(textGeom, textMat);
 
-          self.textMesh.position.x = self.model.position.x;
-          self.textMesh.position.y = self.model.position.y+BufferMapBlock.LENGTH/4;
-          self.textMesh.position.z = self.model.position.z;
-					self.textMesh.lookAt(self.world.player.camera.position);
-          self.world.scene.add(self.textMesh);
-      } );
-  }
+         self.textMesh.position.x = self.model.position.x;
+         self.textMesh.position.y = self.model.position.y+BufferMapBlock.LENGTH/4;
+         self.textMesh.position.z = self.model.position.z;
+			self.textMesh.lookAt(self.world.player.camera.position);
+         self.world.scene.add(self.textMesh);
+   	});
+	}
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.x = x;
 		this.y = y;
