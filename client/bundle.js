@@ -221,8 +221,8 @@ class ClientPlayer extends Entity {
 	constructor(world, x = 0, y = 3.5, z = 0) {
 		super(x, y, z, world);
 
-		const MOVEMENT_SPEED = 0.02;
-		const TURN_SPEED = 0.001;
+		const MOVEMENT_SPEED = 0.008;
+		const TURN_SPEED = 0.0004;
 
 		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
 		this.camera.position.x = x;
@@ -235,6 +235,9 @@ class ClientPlayer extends Entity {
 
 		this.controller.addPoseChangeListener((pos, rot) => {
 			world.socket.emit(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, pos.x, pos.y, pos.z, rot.x, rot.y);
+			world.opponentPlayers.forEach((oPlayer) => {
+          oPlayer.updatePlayerName();
+      });
 		});
 	}
 	update(delta) {
@@ -404,6 +407,7 @@ module.exports = FPSController;
 
 },{}],7:[function(require,module,exports){
 var Entity = require("./Entity");
+var BufferMapBlock = require("./BufferMapBlock");
 
 class OpponentPlayer extends Entity {
 	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
@@ -419,29 +423,29 @@ class OpponentPlayer extends Entity {
 		this.model.position.z = z;
 		this.world.scene.add(this.model);
 
-		usernameLoad(this.name);
+		this.usernameLoad(this.name);
 	}
 	usernameLoad(username){
       var textLoad = new THREE.FontLoader();
       var textGeom;
-      textLoad.load( '../Aldo the Apache_Regular.json', function ( font ) {
+			var self = this;
+      textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
           textGeom = new THREE.TextBufferGeometry( username, {
               font: font,
-              size: length/(2*username.length),
+              size: BufferMapBlock.LENGTH/(3*username.length),
               height: 0.1,
               curveSegments: 12,
               bevelEnabled: false,
-//                    bevelThickness: length/2,
-//                    bevelSize: length/3,
-//                    bevelOffset: 0,
-//                    bevelSegments: 5
           } );
-          var textMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff });
-          textMesh = new THREE.Mesh(textGeom, textMat);
-          textMesh.position.x = 3*length;
-          textMesh.position.y = 2*length;
-          textMesh.position.z = 4*length;
-          this.world.scene.add(textMesh);
+          var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff});
+					textGeom.center();
+          self.textMesh = new THREE.Mesh(textGeom, textMat);
+
+          self.textMesh.position.x = self.model.position.x;
+          self.textMesh.position.y = self.model.position.y+BufferMapBlock.LENGTH/4;
+          self.textMesh.position.z = self.model.position.z;
+					self.textMesh.lookAt(self.world.player.camera.position);
+          self.world.scene.add(self.textMesh);
       } );
   }
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
@@ -455,11 +459,17 @@ class OpponentPlayer extends Entity {
 		this.model.position.y = y;
 		this.model.position.z = z;
 	}
+	updatePlayerName(){
+		this.textMesh.lookAt(this.world.player.camera.position);
+		this.textMesh.position.x = this.model.position.x;
+		this.textMesh.position.y = this.model.position.y + BufferMapBlock.LENGTH/4;
+		this.textMesh.position.z = this.model.position.z;
+	}
 }
 
 module.exports = OpponentPlayer;
 
-},{"./Entity":5}],8:[function(require,module,exports){
+},{"./BufferMapBlock":3,"./Entity":5}],8:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;

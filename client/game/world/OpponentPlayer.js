@@ -1,4 +1,5 @@
 var Entity = require("./Entity");
+var BufferMapBlock = require("./BufferMapBlock");
 
 class OpponentPlayer extends Entity {
 	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
@@ -14,29 +15,29 @@ class OpponentPlayer extends Entity {
 		this.model.position.z = z;
 		this.world.scene.add(this.model);
 
-		usernameLoad(this.name);
+		this.usernameLoad(this.name);
 	}
 	usernameLoad(username){
       var textLoad = new THREE.FontLoader();
       var textGeom;
-      textLoad.load( '../Aldo the Apache_Regular.json', function ( font ) {
+			var self = this;
+      textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
           textGeom = new THREE.TextBufferGeometry( username, {
               font: font,
-              size: length/(2*username.length),
+              size: BufferMapBlock.LENGTH/(3*username.length),
               height: 0.1,
               curveSegments: 12,
               bevelEnabled: false,
-//                    bevelThickness: length/2,
-//                    bevelSize: length/3,
-//                    bevelOffset: 0,
-//                    bevelSegments: 5
           } );
-          var textMat = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0xffffff });
-          textMesh = new THREE.Mesh(textGeom, textMat);
-          textMesh.position.x = 3*length;
-          textMesh.position.y = 2*length;
-          textMesh.position.z = 4*length;
-          this.world.scene.add(textMesh);
+          var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff});
+					textGeom.center();
+          self.textMesh = new THREE.Mesh(textGeom, textMat);
+
+          self.textMesh.position.x = self.model.position.x;
+          self.textMesh.position.y = self.model.position.y+BufferMapBlock.LENGTH/4;
+          self.textMesh.position.z = self.model.position.z;
+					self.textMesh.lookAt(self.world.player.camera.position);
+          self.world.scene.add(self.textMesh);
       } );
   }
 	updatePlayerPose(x, y, z, rot_x, rot_y) {
@@ -49,6 +50,12 @@ class OpponentPlayer extends Entity {
 		this.model.position.x = x;
 		this.model.position.y = y;
 		this.model.position.z = z;
+	}
+	updatePlayerName(){
+		this.textMesh.lookAt(this.world.player.camera.position);
+		this.textMesh.position.x = this.model.position.x;
+		this.textMesh.position.y = this.model.position.y + BufferMapBlock.LENGTH/4;
+		this.textMesh.position.z = this.model.position.z;
 	}
 }
 
