@@ -419,7 +419,7 @@ class OpponentPlayer extends Entity {
 		this.model.position.z = z;
 		this.world.scene.add(this.model);
 
-		usernameLoad(this.name);
+		this.usernameLoad(this.name);
 	}
 	usernameLoad(username){
       var textLoad = new THREE.FontLoader();
