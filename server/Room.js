@@ -18,12 +18,12 @@ class Room {
 		var socketID = socket.id;
 		if (!this.players.has(socketID)) {
 			console.log(name + " has joined the room (" + this.roomID + ")");
-			socket.emit(Constants.INITIALIZE_MAP, this.map, this.width, this.height, JSON.stringify(this.players));
+			socket.emit(Constants.INITIALIZE_MAP, this.map, this.width, this.height);
 			this.players.forEach((oPlayer) => {
 				socket.emit(Constants.ADD_PLAYER, oPlayer.x, oPlayer.y, oPlayer.z, oPlayer.rot_x, oPlayer.rot_y, oPlayer.name, oPlayer.socketID);
 			});
 
-			var player = new Player(name , socketID);
+			var player = new Player(name, socketID);
 			this.players.set(socketID, player);
 			this.size++;
 

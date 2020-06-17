@@ -14,6 +14,8 @@ class FPSController {
 		this.moveUp = false;
 		this.moveDown = false;
 
+		this.sprinting = false;
+
 		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
 		this.PI_2 = Math.PI / 2;
 		this.vec = new THREE.Vector3();
@@ -89,6 +91,8 @@ class FPSController {
 
 			case 82: /*R*/ this.moveUp = true; break;
 			case 70: /*F*/ this.moveDown = true; break;
+
+			case 16: /*Shift*/ this.sprinting = true; break;
 		}
 	}
 	onKeyUp(event) {
@@ -101,6 +105,8 @@ class FPSController {
 
 			case 82: /*R*/ this.moveUp = false; break;
 			case 70: /*F*/ this.moveDown = false; break;
+
+			case 16: /*Shift*/ this.sprinting = false; break;
 		}
 	}
 	moveCamForward(distance) {
@@ -122,14 +128,46 @@ class FPSController {
 		this.onPoseChange(this.camera.position, this.euler);
 	}
 	update(delta) {
-		if (this.moveForward && !this.moveBackward) this.moveCamForward(this.speed * delta);
-		if (this.moveBackward && !this.moveForward) this.moveCamForward(-this.speed * delta);
+		const diagonalSpeedAdjustment = 0.7021;
+		var forwardBackMovement = (this.moveForward && !this.moveBackward) || (this.moveBackward && !this.moveForward);
+		var sideMovement = (this.moveLeft && !this.moveRight) || (this.moveRight && !this.moveLeft);
 
-		if (this.moveLeft && !this.moveRight) this.moveCamRight(-this.speed * delta);
-		if (this.moveRight && !this.moveLeft) this.moveCamRight(this.speed * delta);
+		const sprintAdjustment = 2.1;
+		var adjustedSpeed = this.speed * delta;
+		if (this.sprinting) adjustedSpeed *= sprintAdjustment;
 
-		if (this.moveUp && !this.moveDown) this.moveCamUp(this.speed * delta);
-		if (this.moveDown && !this.moveUp) this.moveCamUp(-this.speed * delta);
+		if (this.moveForward && !this.moveBackward) {
+			if (sideMovement) {
+				this.moveCamForward(adjustedSpeed * diagonalSpeedAdjustment);
+			} else {
+				this.moveCamForward(adjustedSpeed);
+			}
+		}
+		if (this.moveBackward && !this.moveForward) {
+			if (sideMovement) {
+				this.moveCamForward(-adjustedSpeed * diagonalSpeedAdjustment);
+			} else {
+				this.moveCamForward(-adjustedSpeed);
+			}
+		}
+
+		if (this.moveLeft && !this.moveRight) {
+			if (forwardBackMovement) {
+				this.moveCamRight(-adjustedSpeed * diagonalSpeedAdjustment);
+			} else {
+				this.moveCamRight(-adjustedSpeed);
+			}
+		}
+		if (this.moveRight && !this.moveLeft) {
+			if (forwardBackMovement) {
+				this.moveCamRight(adjustedSpeed * diagonalSpeedAdjustment);
+			} else {
+				this.moveCamRight(adjustedSpeed);
+			}
+		}
+
+		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
+		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
 	}
 	lock() {
 		this.domElement.requestPointerLock();
