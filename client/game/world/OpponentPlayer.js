@@ -7,19 +7,34 @@ class OpponentPlayer extends Entity {
 		this.name = name;
 		this.socketID = socketID;
 
-		var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-		var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
-		this.model = new THREE.Mesh(geometry, material);
-		this.model.position.x = x;
-		this.model.position.y = y;
-		this.model.position.z = z;
-		this.world.scene.add(this.model);
+		this.posX = x;
+		this.posY = y;
+		this.posZ = z;
+		this.modelLoad(x, y, z);
 
 		this.usernameLoad(this.name);
 	}
 	dispose() {
 		this.world.scene.remove(this.model);
 		this.world.scene.remove(this.textMesh);
+	}
+	modelLoad(){
+		// var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+		// var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+		// this.model = new THREE.Mesh(geometry, material);
+		// this.model.position.x = x;
+		// this.model.position.y = y;
+		// this.model.position.z = z;
+		// this.world.scene.add(this.model);
+		var loader = new THREE.GLTFLoader();
+		var self = this;
+		loader.load('client/Models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
+        self.model = gltf.scene.children[0];
+				self.model.position.x = self.posX;
+				self.model.position.y = self.posY;
+				self.model.position.z = self.posZ;
+				self.world.scene.add(self.model);
+    });
 	}
 	usernameLoad(username){
    	var textLoad = new THREE.FontLoader();
@@ -37,9 +52,10 @@ class OpponentPlayer extends Entity {
 			textGeom.center();
          self.textMesh = new THREE.Mesh(textGeom, textMat);
 
-         self.textMesh.position.x = self.model.position.x;
-         self.textMesh.position.y = self.model.position.y+BufferMapBlock.LENGTH/4;
-         self.textMesh.position.z = self.model.position.z;
+         self.textMesh.position.x = self.posX;
+         self.textMesh.position.y = self.posy+BufferMapBlock.LENGTH/4;
+         self.textMesh.position.z = self.posZ;
+
 			self.textMesh.lookAt(self.world.player.camera.position);
          self.world.scene.add(self.textMesh);
    	});
@@ -58,9 +74,9 @@ class OpponentPlayer extends Entity {
 	updatePlayerName() {
 		if (this.textMesh == undefined) return; //TODO temporary fix
 		this.textMesh.lookAt(this.world.player.camera.position);
-		this.textMesh.position.x = this.model.position.x;
-		this.textMesh.position.y = this.model.position.y + BufferMapBlock.LENGTH/4;
-		this.textMesh.position.z = this.model.position.z;
+		this.textMesh.position.x = this.posX;
+		this.textMesh.position.y = this.posY + BufferMapBlock.LENGTH/4;
+		this.textMesh.position.z = this.posZ;
 	}
 }
 
