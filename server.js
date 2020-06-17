@@ -55,6 +55,9 @@ io.on("connection", function(socket) {
 		}
 		room.addPlayer(username, socket);
 	});
+	socket.on(Constants.SOCKET_PLAYER_LEAVE_ROOM, function() {
+		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
+	})
 	socket.on(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y) {
 		var roomID = clientToRoomMap.get(socket.id);
 		var room = rooms.get(roomID);

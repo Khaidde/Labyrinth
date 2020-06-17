@@ -51,6 +51,9 @@ class World {
 		this.player.controller.dispose();
 		this.scene.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
+		this.socket.off(Constants.ADD_PLAYER);
+		this.socket.off(Constants.REMOVE_PLAYER);
+		this.socket.off(Constants.SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION);
 	}
 	initMap(map, width, height) {
 		//Map mesh

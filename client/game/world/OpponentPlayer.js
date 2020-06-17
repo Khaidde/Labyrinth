@@ -55,7 +55,8 @@ class OpponentPlayer extends Entity {
 		this.model.position.y = y;
 		this.model.position.z = z;
 	}
-	updatePlayerName(){
+	updatePlayerName() {
+		if (this.textMesh == undefined) return; //TODO temporary fix
 		this.textMesh.lookAt(this.world.player.camera.position);
 		this.textMesh.position.x = this.model.position.x;
 		this.textMesh.position.y = this.model.position.y + BufferMapBlock.LENGTH/4;
