@@ -1,8 +1,6 @@
 class Entity {
 	constructor(x, y, z, world) {
-		this.xpos = x;
-		this.ypos = y;
-		this.zpos = z;
+		this.position = new THREE.Vector3(x, y, z);
 		this.world = world;
 	}
 	update() {}

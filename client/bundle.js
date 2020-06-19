@@ -1,9 +1,14 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
+	MAP_BLOCK_LENGTH: 5,
+
 	SOCKET_PLAYER_LOGIN: "socket_player_login",
 	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
 	INITIALIZE_MAP: "init_map",
+	WORLD_STATE_UPDATE: "state_update",
+
+	//TODO delete these
 	ADD_PLAYER: "new_player",
 	REMOVE_PLAYER: "remove_player",
 	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
@@ -27,8 +32,10 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.INITIALIZE_MAP, function(map, width, height) {
-			main.world = new World(map, width, height, socket);
+		socket.on(Constants.INITIALIZE_MAP, function(worldInfo) {
+			main.world = new World(socket);
+			main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
+			main.world.initPlayers(worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
 			main.world.player.controller.addPointUnlockListener(function() {
 				main.world.player.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -183,6 +190,7 @@ window.onload =
 
 },{"./Constants":1,"./world/World":9}],3:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
+var Constants = require("../Constants");
 
 class BufferMapBlock {
 	constructor(w, e, n, s, x, y, alt, world){
@@ -196,9 +204,8 @@ class BufferMapBlock {
 
 		this.world = world;
 	}
-	static get LENGTH() {return 5;}
 	create() {
-		var length = BufferMapBlock.LENGTH;
+		var length = Constants.MAP_BLOCK_LENGTH;
 		var floor = new PlateFrame(this.centerX, length/2, this.centerY, 0, this.centerZ, length/2, 2 * (1 - (length - this.centerY)/length), 255/255, 255/255, this.world);
 		var plateNum = this.world.plateNum;
 		var general_term = [2+4*(plateNum-1), 3+4*(plateNum-1), 1+4*(plateNum-1), 1+4*(plateNum-1), 0+4*(plateNum-1), 2+4*(plateNum-1)];
@@ -264,14 +271,14 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"./PlateFrame":8}],4:[function(require,module,exports){
+},{"../Constants":1,"./PlateFrame":8}],4:[function(require,module,exports){
 var Constants = require("../Constants");
 
 var Entity = require("./Entity");
 var FPSController = require("./FPSController");
 
 class ClientPlayer extends Entity {
-	constructor(world, x = 0, y = 3.5, z = 0) {
+	constructor(x, y, z, world) {
 		super(x, y, z, world);
 
 		const MOVEMENT_SPEED = 0.008;
@@ -300,9 +307,7 @@ module.exports = ClientPlayer;
 },{"../Constants":1,"./Entity":5,"./FPSController":6}],5:[function(require,module,exports){
 class Entity {
 	constructor(x, y, z, world) {
-		this.xpos = x;
-		this.ypos = y;
-		this.zpos = z;
+		this.position = new THREE.Vector3(x, y, z);
 		this.world = world;
 	}
 	update() {}
@@ -496,16 +501,14 @@ module.exports = FPSController;
 },{}],7:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
+var Constants = require("../Constants");
 
-class OpponentPlayer extends Entity {
+class NetPlayer extends Entity {
 	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
 		super(x, y, z, world);
 		this.name = name;
 		this.socketID = socketID;
 
-		this.posX = x;
-		this.posY = y;
-		this.posZ = z;
 		this.modelLoad(x, y, z);
 
 		this.usernameLoad(this.name);
@@ -515,22 +518,15 @@ class OpponentPlayer extends Entity {
 		this.world.scene.remove(this.textMesh);
 	}
 	modelLoad(){
-		// var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-		// var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
-		// this.model = new THREE.Mesh(geometry, material);
-		// this.model.position.x = x;
-		// this.model.position.y = y;
-		// this.model.position.z = z;
-		// this.world.scene.add(this.model);
 		var loader = new THREE.GLTFLoader();
 		var self = this;
-		loader.load('client/Models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
-        self.model = gltf.scene.children[0];
-				self.model.position.x = self.posX;
-				self.model.position.y = self.posY;
-				self.model.position.z = self.posZ;
-				self.world.scene.add(self.model);
-    });
+		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
+      	self.model = gltf.scene.children[0];
+			self.model.position.x = self.position.x;
+			self.model.position.y = self.position.y;
+			self.model.position.z = self.position.z;
+			self.world.scene.add(self.model);
+    	});
 	}
 	usernameLoad(username){
    	var textLoad = new THREE.FontLoader();
@@ -539,7 +535,7 @@ class OpponentPlayer extends Entity {
       textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
       	textGeom = new THREE.TextBufferGeometry( username, {
          	font: font,
-            size: BufferMapBlock.LENGTH/(3*username.length),
+            size: Constants.MAP_BLOCK_LENGTH/(3*username.length),
             height: 0.1,
             curveSegments: 12,
             bevelEnabled: false,
@@ -548,21 +544,25 @@ class OpponentPlayer extends Entity {
 			textGeom.center();
          self.textMesh = new THREE.Mesh(textGeom, textMat);
 
-         self.textMesh.position.x = self.posX;
-         self.textMesh.position.y = self.posy+BufferMapBlock.LENGTH/4;
-         self.textMesh.position.z = self.posZ;
+         self.textMesh.position.x = self.position.x;
+         self.textMesh.position.y = self.position.y+Constants.MAP_BLOCK_LENGTH/4;
+         self.textMesh.position.z = self.position.z;
 
 			self.textMesh.lookAt(self.world.player.camera.position);
          self.world.scene.add(self.textMesh);
    	});
 	}
-	updatePlayerPose(x, y, z, rot_x, rot_y) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
+	update(delta) {
+		this.updatePlayerName();
+	}
+	setPlayerPose(x, y, z, rot_x, rot_y) {
+		this.position.x = x;
+		this.position.y = y;
+		this.position.z = z;
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
 
+		if (this.model == undefined) return; //TODO temporary fix
 		this.model.position.x = x;
 		this.model.position.y = y;
 		this.model.position.z = z;
@@ -570,15 +570,15 @@ class OpponentPlayer extends Entity {
 	updatePlayerName() {
 		if (this.textMesh == undefined) return; //TODO temporary fix
 		this.textMesh.lookAt(this.world.player.camera.position);
-		this.textMesh.position.x = this.posX;
-		this.textMesh.position.y = this.posY + BufferMapBlock.LENGTH/4;
-		this.textMesh.position.z = this.posZ;
+		this.textMesh.position.x = this.position.x;
+		this.textMesh.position.y = this.position.y + Constants.MAP_BLOCK_LENGTH/4;
+		this.textMesh.position.z = this.position.z;
 	}
 }
 
-module.exports = OpponentPlayer;
+module.exports = NetPlayer;
 
-},{"./BufferMapBlock":3,"./Entity":5}],8:[function(require,module,exports){
+},{"../Constants":1,"./BufferMapBlock":3,"./Entity":5}],8:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -619,11 +619,11 @@ var Constants = require("../Constants");
 
 var Entity = require("./Entity");
 var ClientPlayer = require("./ClientPlayer");
-var OpponentPlayer = require("./OpponentPlayer");
+var NetPlayer = require("./NetPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
 class World {
-	constructor (map, width, height, socket) {
+	constructor (socket) {
 		//Initialize the map mesh of points
 		this.bufferMapGeom = new THREE.BufferGeometry();
 		this.positions = [];
@@ -645,22 +645,20 @@ class World {
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
 
-		this.initMap(map, width, height);
-
 		this.socket = socket;
 		var self = this;
 		socket.on(Constants.ADD_PLAYER, function(x, y, z, rot_x, rot_y, name, socketID) {
-			var opponentPlayer = new OpponentPlayer(self, x, y, z, rot_x, rot_y, name, socketID);
-			self.addOpponentPlayer(opponentPlayer);
+			var netPlayer = new NetPlayer(self, x, y, z, rot_x, rot_y, name, socketID);
+			self.addNetPlayer(netPlayer);
 			console.log(name + " has joined!");
 		});
 		socket.on(Constants.REMOVE_PLAYER, function(socketID) {
-			console.log(self.opponentPlayers.get(socketID).name + " has left!");
-			self.removeOpponentPlayer(socketID);
+			console.log(self.netPlayers.get(socketID).name + " has left!");
+			self.removeNetPlayer(socketID);
 		});
 		socket.on(Constants.SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y, socketID) {
 			if (socketID == socket.id) return;
-			self.opponentPlayers.get(socketID).updatePlayerPose(x, y, z, rot_x, rot_y);
+			self.netPlayers.get(socketID).setPlayerPose(x, y, z, rot_x, rot_y);
 		});
 	}
 	dispose() {
@@ -687,25 +685,25 @@ class World {
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
 		this.scene.add( ambient_light );
 
-		//Add player
-		this.player = new ClientPlayer(this);
-		this.opponentPlayers = new Map();
-
 		this.testSphere();
 	}
-	addOpponentPlayer(opponentPlayer) {
-		var socketID = opponentPlayer.socketID;
-		if (!this.opponentPlayers.has(socketID)) {
-			this.opponentPlayers.set(socketID, opponentPlayer);
+	initPlayers(spawnX, spawnY, spawnZ) {
+		this.player = new ClientPlayer(spawnX, spawnY, spawnZ, this);
+		this.netPlayers = new Map();
+	}
+	addNetPlayer(netPlayer) {
+		var socketID = netPlayer.socketID;
+		if (!this.netPlayers.has(socketID)) {
+			this.netPlayers.set(socketID, netPlayer);
 			this.size++;
 		} else {
 			throw "player {" + socketID + "} already exists";
 		}
 	}
-	removeOpponentPlayer(socketID) {
-		if (this.opponentPlayers.has(socketID)) {
-			this.opponentPlayers.get(socketID).dispose();
-      	this.opponentPlayers.delete(socketID);
+	removeNetPlayer(socketID) {
+		if (this.netPlayers.has(socketID)) {
+			this.netPlayers.get(socketID).dispose();
+      	this.netPlayers.delete(socketID);
 			this.size--;
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
@@ -717,8 +715,8 @@ class World {
 	}
 	update(delta) {
 		this.player.update(delta);
-		this.opponentPlayers.forEach((oPlayer) => {
-			oPlayer.updatePlayerName();
+		this.netPlayers.forEach((nPlayer) => {
+			nPlayer.update(delta);
 		});
 	}
 	render() {
@@ -729,27 +727,20 @@ class World {
       this.renderer.render(this.scene, this.player.camera);
 	}
 	lightUp(x, y, z) {
-		var pLight = new THREE.PointLight( 0xffffff, 0.5, BufferMapBlock.LENGTH);
+		var pLight = new THREE.PointLight( 0xffffff, 0.5, Constants.MAP_BLOCK_LENGTH);
 		pLight.position.set(x, y, z);
 		pLight.castShadow = false;
 		this.scene.add( pLight );
 	}
 	testSphere(){
-		var geometry = new THREE.SphereGeometry(BufferMapBlock.LENGTH/2, 50, 50 );
+		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
 		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
 		var mesh = new THREE.Mesh( geometry, material );
 		mesh.material.color.setHex( 0xffff00 );
 		mesh.castShadow = true;
 		mesh.receiveShadow = false;
-		mesh.position.y = BufferMapBlock.LENGTH*3/2;
+		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
 		this.scene.add( mesh );
-	}
-	setUpMap() {
-		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
-		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
-		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
-		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
-		this.bufferMapGeom.setIndex(this.indices);
 	}
 	interpretMap(map, width, height) {
 		for (var y = 0; y < height; y++) {
@@ -760,32 +751,39 @@ class World {
 					continue;
 
 				if (y == 0) {
-					t = BufferMapBlock.LENGTH - map[x + y * width];
+					t = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 					b = map[x + (y + 1) * width] - map[x + y * width];
 				} else if (y == height - 1) {
 					t = map[x + (y - 1) * width] - map[x + y * width];
-					b = BufferMapBlock.LENGTH - map[x + y * width];
+					b = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 				} else {
 					t = map[x + (y - 1) * width] - map[x + y * width];
 					b = map[x + (y + 1) * width] - map[x + y * width];
 				}
 
 				if (x == 0) {
-					l = BufferMapBlock.LENGTH - map[x + y * width];
+					l = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 					r = map[(x + 1) + y * width] - map[x + y * width];
 				} else if (x == width - 1) {
 					l = map[(x - 1) + y * width] - map[x + y * width];
-					r = BufferMapBlock.LENGTH - map[x + y * width];
+					r = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 				} else {
 					l = map[(x - 1) + y * width] - map[x + y * width];
 					r = map[(x + 1) + y * width] - map[x + y * width];
 				}
-				new BufferMapBlock(l, r, t, b, x*BufferMapBlock.LENGTH, y*BufferMapBlock.LENGTH, map[x + y * width], this).create();
+				new BufferMapBlock(l, r, t, b, x*Constants.MAP_BLOCK_LENGTH, y*Constants.MAP_BLOCK_LENGTH, map[x + y * width], this).create();
 			}
 		}
+	}
+	setUpMap() {
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
 	}
 }
 
 module.exports = World;
 
-},{"../Constants":1,"./BufferMapBlock":3,"./ClientPlayer":4,"./Entity":5,"./OpponentPlayer":7}]},{},[2]);
+},{"../Constants":1,"./BufferMapBlock":3,"./ClientPlayer":4,"./Entity":5,"./NetPlayer":7}]},{},[2]);

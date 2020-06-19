@@ -18,7 +18,14 @@ class Room {
 		var socketID = socket.id;
 		if (!this.players.has(socketID)) {
 			console.log(name + " has joined the room (" + this.roomID + ")");
-			socket.emit(Constants.INITIALIZE_MAP, this.map, this.width, this.height);
+			socket.emit(Constants.INITIALIZE_MAP, {
+				map: this.map,
+				width: this.width,
+				height: this.height,
+				spawnX: Math.random() * this.width * Constants.MAP_BLOCK_LENGTH,
+				spawnZ: Math.random() * this.height * Constants.MAP_BLOCK_LENGTH,
+				spawnY: Constants.MAP_BLOCK_LENGTH
+			});
 			this.players.forEach((oPlayer) => {
 				socket.emit(Constants.ADD_PLAYER, oPlayer.x, oPlayer.y, oPlayer.z, oPlayer.rot_x, oPlayer.rot_y, oPlayer.name, oPlayer.socketID);
 			});
@@ -31,6 +38,7 @@ class Room {
 		} else {
 			throw "player {" + socketID + "} already exists";
 		}
+		console.log(this.createState());
 	}
 	removePlayer(socket) {
 		var socketID = socket.id;
@@ -62,6 +70,12 @@ class Room {
 		this.players.forEach(() => {
 
 		})
+	}
+	createState() {
+		var state = {
+			players: Array.from(this.players.values())
+		}
+		return state;
 	}
 }
 

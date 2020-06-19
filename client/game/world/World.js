@@ -2,11 +2,11 @@ var Constants = require("../Constants");
 
 var Entity = require("./Entity");
 var ClientPlayer = require("./ClientPlayer");
-var OpponentPlayer = require("./OpponentPlayer");
+var NetPlayer = require("./NetPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
 class World {
-	constructor (map, width, height, socket) {
+	constructor (socket) {
 		//Initialize the map mesh of points
 		this.bufferMapGeom = new THREE.BufferGeometry();
 		this.positions = [];
@@ -28,22 +28,20 @@ class World {
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
 
-		this.initMap(map, width, height);
-
 		this.socket = socket;
 		var self = this;
 		socket.on(Constants.ADD_PLAYER, function(x, y, z, rot_x, rot_y, name, socketID) {
-			var opponentPlayer = new OpponentPlayer(self, x, y, z, rot_x, rot_y, name, socketID);
-			self.addOpponentPlayer(opponentPlayer);
+			var netPlayer = new NetPlayer(self, x, y, z, rot_x, rot_y, name, socketID);
+			self.addNetPlayer(netPlayer);
 			console.log(name + " has joined!");
 		});
 		socket.on(Constants.REMOVE_PLAYER, function(socketID) {
-			console.log(self.opponentPlayers.get(socketID).name + " has left!");
-			self.removeOpponentPlayer(socketID);
+			console.log(self.netPlayers.get(socketID).name + " has left!");
+			self.removeNetPlayer(socketID);
 		});
 		socket.on(Constants.SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y, socketID) {
 			if (socketID == socket.id) return;
-			self.opponentPlayers.get(socketID).updatePlayerPose(x, y, z, rot_x, rot_y);
+			self.netPlayers.get(socketID).setPlayerPose(x, y, z, rot_x, rot_y);
 		});
 	}
 	dispose() {
@@ -70,25 +68,25 @@ class World {
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
 		this.scene.add( ambient_light );
 
-		//Add player
-		this.player = new ClientPlayer(this);
-		this.opponentPlayers = new Map();
-
 		this.testSphere();
 	}
-	addOpponentPlayer(opponentPlayer) {
-		var socketID = opponentPlayer.socketID;
-		if (!this.opponentPlayers.has(socketID)) {
-			this.opponentPlayers.set(socketID, opponentPlayer);
+	initPlayers(spawnX, spawnY, spawnZ) {
+		this.player = new ClientPlayer(spawnX, spawnY, spawnZ, this);
+		this.netPlayers = new Map();
+	}
+	addNetPlayer(netPlayer) {
+		var socketID = netPlayer.socketID;
+		if (!this.netPlayers.has(socketID)) {
+			this.netPlayers.set(socketID, netPlayer);
 			this.size++;
 		} else {
 			throw "player {" + socketID + "} already exists";
 		}
 	}
-	removeOpponentPlayer(socketID) {
-		if (this.opponentPlayers.has(socketID)) {
-			this.opponentPlayers.get(socketID).dispose();
-      	this.opponentPlayers.delete(socketID);
+	removeNetPlayer(socketID) {
+		if (this.netPlayers.has(socketID)) {
+			this.netPlayers.get(socketID).dispose();
+      	this.netPlayers.delete(socketID);
 			this.size--;
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
@@ -100,8 +98,8 @@ class World {
 	}
 	update(delta) {
 		this.player.update(delta);
-		this.opponentPlayers.forEach((oPlayer) => {
-			oPlayer.updatePlayerName();
+		this.netPlayers.forEach((nPlayer) => {
+			nPlayer.update(delta);
 		});
 	}
 	render() {
@@ -112,27 +110,20 @@ class World {
       this.renderer.render(this.scene, this.player.camera);
 	}
 	lightUp(x, y, z) {
-		var pLight = new THREE.PointLight( 0xffffff, 0.5, BufferMapBlock.LENGTH);
+		var pLight = new THREE.PointLight( 0xffffff, 0.5, Constants.MAP_BLOCK_LENGTH);
 		pLight.position.set(x, y, z);
 		pLight.castShadow = false;
 		this.scene.add( pLight );
 	}
 	testSphere(){
-		var geometry = new THREE.SphereGeometry(BufferMapBlock.LENGTH/2, 50, 50 );
+		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
 		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
 		var mesh = new THREE.Mesh( geometry, material );
 		mesh.material.color.setHex( 0xffff00 );
 		mesh.castShadow = true;
 		mesh.receiveShadow = false;
-		mesh.position.y = BufferMapBlock.LENGTH*3/2;
+		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
 		this.scene.add( mesh );
-	}
-	setUpMap() {
-		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
-		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
-		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
-		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
-		this.bufferMapGeom.setIndex(this.indices);
 	}
 	interpretMap(map, width, height) {
 		for (var y = 0; y < height; y++) {
@@ -143,29 +134,36 @@ class World {
 					continue;
 
 				if (y == 0) {
-					t = BufferMapBlock.LENGTH - map[x + y * width];
+					t = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 					b = map[x + (y + 1) * width] - map[x + y * width];
 				} else if (y == height - 1) {
 					t = map[x + (y - 1) * width] - map[x + y * width];
-					b = BufferMapBlock.LENGTH - map[x + y * width];
+					b = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 				} else {
 					t = map[x + (y - 1) * width] - map[x + y * width];
 					b = map[x + (y + 1) * width] - map[x + y * width];
 				}
 
 				if (x == 0) {
-					l = BufferMapBlock.LENGTH - map[x + y * width];
+					l = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 					r = map[(x + 1) + y * width] - map[x + y * width];
 				} else if (x == width - 1) {
 					l = map[(x - 1) + y * width] - map[x + y * width];
-					r = BufferMapBlock.LENGTH - map[x + y * width];
+					r = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
 				} else {
 					l = map[(x - 1) + y * width] - map[x + y * width];
 					r = map[(x + 1) + y * width] - map[x + y * width];
 				}
-				new BufferMapBlock(l, r, t, b, x*BufferMapBlock.LENGTH, y*BufferMapBlock.LENGTH, map[x + y * width], this).create();
+				new BufferMapBlock(l, r, t, b, x*Constants.MAP_BLOCK_LENGTH, y*Constants.MAP_BLOCK_LENGTH, map[x + y * width], this).create();
 			}
 		}
+	}
+	setUpMap() {
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
 	}
 }
 

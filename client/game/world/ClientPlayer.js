@@ -4,7 +4,7 @@ var Entity = require("./Entity");
 var FPSController = require("./FPSController");
 
 class ClientPlayer extends Entity {
-	constructor(world, x = 0, y = 3.5, z = 0) {
+	constructor(x, y, z, world) {
 		super(x, y, z, world);
 
 		const MOVEMENT_SPEED = 0.008;

@@ -1,4 +1,5 @@
 var PlateFrame = require("./PlateFrame");
+var Constants = require("../Constants");
 
 class BufferMapBlock {
 	constructor(w, e, n, s, x, y, alt, world){
@@ -12,9 +13,8 @@ class BufferMapBlock {
 
 		this.world = world;
 	}
-	static get LENGTH() {return 5;}
 	create() {
-		var length = BufferMapBlock.LENGTH;
+		var length = Constants.MAP_BLOCK_LENGTH;
 		var floor = new PlateFrame(this.centerX, length/2, this.centerY, 0, this.centerZ, length/2, 2 * (1 - (length - this.centerY)/length), 255/255, 255/255, this.world);
 		var plateNum = this.world.plateNum;
 		var general_term = [2+4*(plateNum-1), 3+4*(plateNum-1), 1+4*(plateNum-1), 1+4*(plateNum-1), 0+4*(plateNum-1), 2+4*(plateNum-1)];

@@ -12,8 +12,10 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.INITIALIZE_MAP, function(map, width, height) {
-			main.world = new World(map, width, height, socket);
+		socket.on(Constants.INITIALIZE_MAP, function(worldInfo) {
+			main.world = new World(socket);
+			main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
+			main.world.initPlayers(worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
 			main.world.player.controller.addPointUnlockListener(function() {
 				main.world.player.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;

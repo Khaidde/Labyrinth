@@ -1,15 +1,13 @@
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
+var Constants = require("../Constants");
 
-class OpponentPlayer extends Entity {
+class NetPlayer extends Entity {
 	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
 		super(x, y, z, world);
 		this.name = name;
 		this.socketID = socketID;
 
-		this.posX = x;
-		this.posY = y;
-		this.posZ = z;
 		this.modelLoad(x, y, z);
 
 		this.usernameLoad(this.name);
@@ -21,13 +19,13 @@ class OpponentPlayer extends Entity {
 	modelLoad(){
 		var loader = new THREE.GLTFLoader();
 		var self = this;
-		loader.load('client/Models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
-        self.model = gltf.scene.children[0];
-				self.model.position.x = self.posX;
-				self.model.position.y = self.posY;
-				self.model.position.z = self.posZ;
-				self.world.scene.add(self.model);
-    });
+		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
+      	self.model = gltf.scene.children[0];
+			self.model.position.x = self.position.x;
+			self.model.position.y = self.position.y;
+			self.model.position.z = self.position.z;
+			self.world.scene.add(self.model);
+    	});
 	}
 	usernameLoad(username){
    	var textLoad = new THREE.FontLoader();
@@ -36,7 +34,7 @@ class OpponentPlayer extends Entity {
       textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
       	textGeom = new THREE.TextBufferGeometry( username, {
          	font: font,
-            size: BufferMapBlock.LENGTH/(3*username.length),
+            size: Constants.MAP_BLOCK_LENGTH/(3*username.length),
             height: 0.1,
             curveSegments: 12,
             bevelEnabled: false,
@@ -45,21 +43,25 @@ class OpponentPlayer extends Entity {
 			textGeom.center();
          self.textMesh = new THREE.Mesh(textGeom, textMat);
 
-         self.textMesh.position.x = self.posX;
-         self.textMesh.position.y = self.posy+BufferMapBlock.LENGTH/4;
-         self.textMesh.position.z = self.posZ;
+         self.textMesh.position.x = self.position.x;
+         self.textMesh.position.y = self.position.y+Constants.MAP_BLOCK_LENGTH/4;
+         self.textMesh.position.z = self.position.z;
 
 			self.textMesh.lookAt(self.world.player.camera.position);
          self.world.scene.add(self.textMesh);
    	});
 	}
-	updatePlayerPose(x, y, z, rot_x, rot_y) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
+	update(delta) {
+		this.updatePlayerName();
+	}
+	setPlayerPose(x, y, z, rot_x, rot_y) {
+		this.position.x = x;
+		this.position.y = y;
+		this.position.z = z;
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
 
+		if (this.model == undefined) return; //TODO temporary fix
 		this.model.position.x = x;
 		this.model.position.y = y;
 		this.model.position.z = z;
@@ -67,10 +69,10 @@ class OpponentPlayer extends Entity {
 	updatePlayerName() {
 		if (this.textMesh == undefined) return; //TODO temporary fix
 		this.textMesh.lookAt(this.world.player.camera.position);
-		this.textMesh.position.x = this.posX;
-		this.textMesh.position.y = this.posY + BufferMapBlock.LENGTH/4;
-		this.textMesh.position.z = this.posZ;
+		this.textMesh.position.x = this.position.x;
+		this.textMesh.position.y = this.position.y + Constants.MAP_BLOCK_LENGTH/4;
+		this.textMesh.position.z = this.position.z;
 	}
 }
 
-module.exports = OpponentPlayer;
+module.exports = NetPlayer;
