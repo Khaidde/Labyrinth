@@ -14,7 +14,6 @@ var rooms = new Map();
 var clientToRoomMap = new Map();
 
 const PORT = process.env.PORT || 5000;
-const FRAME_RATE = 1000.0 / 80.0; //Constants.FPS;
 const ROOM_ID_MAX_LENGTH = 5;
 
 app.set("port", PORT);
@@ -58,18 +57,22 @@ io.on("connection", function(socket) {
 	socket.on(Constants.SOCKET_PLAYER_LEAVE_ROOM, function() {
 		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 	})
-	socket.on(Constants.CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION, function(x, y, z, rot_x, rot_y) {
+	socket.on(Constants.CLIENT_POSE_CHANGE, function(x, y, z, rot_x, rot_y) {
 		var roomID = clientToRoomMap.get(socket.id);
 		var room = rooms.get(roomID);
-		room.updatePlayerPosition(x, y, z, rot_x, rot_y, socket.id);
+		room.updatePlayerPose(x, y, z, rot_x, rot_y, socket.id);
 	});
 	socket.on("disconnect", function() {
 		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 	});
 });
 
-setInterval(() => {
+var lastUpdateTime = (new Date()).getTime();
+setInterval(function() {
+	var currentTime = (new Date()).getTime();
+	var delta = currentTime - lastUpdateTime;
 	rooms.forEach(function(room) {
-		room.update();
+		room.update(delta);
 	});
-}, FRAME_RATE);
+	lastUpdateTime = currentTime;
+}, 1000 / Constants.FPS);

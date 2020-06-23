@@ -12,17 +12,17 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.INITIALIZE_MAP, function(worldInfo) {
-			main.world = new World(socket);
-			main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
-			main.world.initPlayers(worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
-			main.world.player.controller.addPointUnlockListener(function() {
-				main.world.player.controller.enabled = false;
+		socket.on(Constants.INITIALIZE_MAP, function(socketID, worldInfo) {
+			main.world = new World(socketID, socket, worldInfo);
+			//main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
+			//main.world.initPlayers(worldInfo.name, worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
+			main.world.controller.addPointUnlockListener(function() {
+				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
 				document.getElementById("pauseMenu").style.opacity = 1;
 				document.getElementById("pauseMenu").style.pointerEvents = "auto";
 			});
-			main.world.player.controller.lock();
+			main.world.controller.lock();
 		});
 	},
 	initMenu: function() {
@@ -83,8 +83,8 @@ const main = {
 			pauseMenu.style.opacity = 0;
 			main.pauseMenuOpacity = 0;
 
-			main.world.player.controller.lock();
-			main.world.player.controller.enabled = true;
+			main.world.controller.lock();
+			main.world.controller.enabled = true;
 		});
 
 		optionsBtn.addEventListener("click", function() {

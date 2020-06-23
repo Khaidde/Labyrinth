@@ -1,5 +1,5 @@
 class Player {
-	constructor(name, socketID, x = 0, y = 3.5, z = 0, rot_x = 0, rot_y = 0) {
+	constructor(name, socketID, x, y, z, rot_x, rot_y) {
 		this.name = name;
 		this.socketID = socketID;
 

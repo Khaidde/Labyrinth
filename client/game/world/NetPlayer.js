@@ -3,20 +3,23 @@ var BufferMapBlock = require("./BufferMapBlock");
 var Constants = require("../Constants");
 
 class NetPlayer extends Entity {
-	constructor(world, x, y, z, rot_x, rot_y, name, socketID) {
+	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
 		super(x, y, z, world);
 		this.name = name;
 		this.socketID = socketID;
 
-		this.modelLoad(x, y, z);
-
-		this.usernameLoad(this.name);
+		if (this.world.clientSocketID != this.socketID) {
+			this.loadModel(x, y, z);
+			this.loadUsername(this.name);
+		}
 	}
 	dispose() {
-		this.world.scene.remove(this.model);
-		this.world.scene.remove(this.textMesh);
+		if (this.world.clientSocketID != this.socketID) {
+			this.world.scene.remove(this.model);
+			this.world.scene.remove(this.textMesh);
+		}
 	}
-	modelLoad(){
+	loadModel() {
 		var loader = new THREE.GLTFLoader();
 		var self = this;
 		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
@@ -27,7 +30,7 @@ class NetPlayer extends Entity {
 			self.world.scene.add(self.model);
     	});
 	}
-	usernameLoad(username){
+	loadUsername(username){
    	var textLoad = new THREE.FontLoader();
       var textGeom;
 		var self = this;
@@ -47,14 +50,15 @@ class NetPlayer extends Entity {
          self.textMesh.position.y = self.position.y+Constants.MAP_BLOCK_LENGTH/4;
          self.textMesh.position.z = self.position.z;
 
-			self.textMesh.lookAt(self.world.player.camera.position);
+			self.textMesh.lookAt(self.world.camera.position);
          self.world.scene.add(self.textMesh);
    	});
 	}
 	update(delta) {
-		this.updatePlayerName();
+		if (this.world.clientSocketID != this.socketID) this.updatePlayerName();
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
+		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
 		this.position.x = x;
 		this.position.y = y;
 		this.position.z = z;
@@ -67,8 +71,9 @@ class NetPlayer extends Entity {
 		this.model.position.z = z;
 	}
 	updatePlayerName() {
+		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
 		if (this.textMesh == undefined) return; //TODO temporary fix
-		this.textMesh.lookAt(this.world.player.camera.position);
+		this.textMesh.lookAt(this.world.camera.position);
 		this.textMesh.position.x = this.position.x;
 		this.textMesh.position.y = this.position.y + Constants.MAP_BLOCK_LENGTH/4;
 		this.textMesh.position.z = this.position.z;

@@ -1,11 +1,14 @@
 var Constants = {
 	FPS: 60,
+	SERVER_SEND_RATE: 10,
 	MAP_BLOCK_LENGTH: 5,
 
 	SOCKET_PLAYER_LOGIN: "socket_player_login",
 	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+
 	INITIALIZE_MAP: "init_map",
 	WORLD_STATE_UPDATE: "state_update",
+	CLIENT_POSE_CHANGE: "client_pose_change",
 
 	//TODO delete these
 	ADD_PLAYER: "new_player",

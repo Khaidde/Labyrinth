@@ -51,6 +51,15 @@ class FPSController {
 			};
 		};
 	}
+	initPose(x, y, z, rotX, rotY) {
+		this.camera.position.x = x;
+		this.camera.position.y = y;
+		this.camera.position.z = z;
+
+		this.euler.x = rotX;
+		this.euler.y = rotY;
+		this.camera.quaternion.setFromEuler(this.euler);
+	}
 	addPointLockListener(callback) {
 		this.lockCallback = callback;
 	}
