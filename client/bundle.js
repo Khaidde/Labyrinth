@@ -107,13 +107,13 @@ const main = {
 
 		mouseSensitivityRange.oninput = function() {
     		mouseSensitivityOutput.value = mouseSensitivityRange.value;
-			main.world.player.controller.turnSpeed = mouseSensitivityRange.value / 2000; //divide to scale value
+			main.world.controller.turnSpeed = mouseSensitivityRange.value / 2000; //divide to scale value
 		};
 
 		mouseSensitivityOutput.addEventListener("blur", function() {
 			mouseSensitivityOutput.value = Math.min(Math.max(mouseSensitivityOutput.value, mouseSensitivityOutput.min), mouseSensitivityOutput.max);
 			mouseSensitivityRange.value = mouseSensitivityOutput.value;
-			main.world.player.controller.turnSpeed = mouseSensitivityOutput.value / 2000;
+			main.world.controller.turnSpeed = mouseSensitivityOutput.value / 2000;
 		});
 
 		optionsBackBtn.addEventListener("click", function() {
