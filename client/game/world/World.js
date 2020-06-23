@@ -34,7 +34,6 @@ class World {
 		this.clientSocketID = socketID;
 		this.socket = socket;
 		this.initServerListeners();
-		this.entityInterpolation = true;
 
 		//Initialize players
 		this.netPlayers = new Map();
@@ -48,11 +47,11 @@ class World {
 		this.controller.dispose();
 		this.scene.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
-		this.socket.off(Constants.WORLD_STATE_UPDATE);
+		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
 	}
 	initServerListeners() {
 		var self = this;
-		this.socket.on(Constants.WORLD_STATE_UPDATE, function(worldInfo) {
+		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, function(worldInfo) {
 			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
 			//Do the same for entities when they are included TODO
 		});
@@ -64,11 +63,11 @@ class World {
 				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 				this.addNetPlayer(netPlayer);
 			} else {
-				if (!this.entityInterpolation) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				if (!Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 			}
-			if (this.entityInterpolation) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+			if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 		});
-		if (this.entityInterpolation) {
+		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 			this.netPlayers.forEach((nPlayer) => {
 				if (nPlayer.socketID == this.clientSocketID) return;
 				if (!players.some((player) => {return nPlayer.socketID == player.socketID;})) {
@@ -98,7 +97,7 @@ class World {
 		this.controller.turnSpeed = TURN_SPEED;
 		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
+			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
 		});
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
@@ -117,7 +116,7 @@ class World {
 	removeNetPlayer(socketID) {
 		if (this.netPlayers.has(socketID)) {
 			this.netPlayers.get(socketID).dispose();
-      	this.netPlayers.delete(socketID);
+   		this.netPlayers.delete(socketID);
 			this.size--;
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
@@ -200,7 +199,7 @@ class World {
 			if (nPlayer.socketID == this.clientSocketID) return;
 			nPlayer.update(delta);
 		});
-		if (this.entityInterpolation) this.interpolateEntities();
+		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();
 	}
 	interpolateEntities() {
 		var delayedTime = Date.now() - (1000.0 / Constants.SERVER_SEND_RATE);
@@ -228,10 +227,10 @@ class World {
 	}
 	render() {
 		this.renderer.setClearColor(0x0a0806, 1);
-      this.renderer.setPixelRatio(window.devicePixelRatio);
+   	this.renderer.setPixelRatio(window.devicePixelRatio);
 
-      this.renderer.setSize(this.screenW, this.screenH);
-      this.renderer.render(this.scene, this.camera);
+   	this.renderer.setSize(this.screenW, this.screenH);
+   	this.renderer.render(this.scene, this.camera);
 	}
 	lightUp(x, y, z) {
 		var pLight = new THREE.PointLight( 0xffffff, 0.5, Constants.MAP_BLOCK_LENGTH);

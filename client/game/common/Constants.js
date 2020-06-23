@@ -3,18 +3,16 @@ var Constants = {
 	SERVER_SEND_RATE: 10,
 	MAP_BLOCK_LENGTH: 5,
 
-	SOCKET_PLAYER_LOGIN: "socket_player_login",
-	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+	//Debug flags
+	DEBUG_SHOW_ENTITY_BOUNDING_BOXES: true,
+	DEBUG_DO_ENTITY_INTERPOLATION: true,
 
-	INITIALIZE_MAP: "init_map",
-	WORLD_STATE_UPDATE: "state_update",
-	CLIENT_POSE_CHANGE: "client_pose_change",
-
-	//TODO delete these
-	ADD_PLAYER: "new_player",
-	REMOVE_PLAYER: "remove_player",
-	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
-	SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION: "server_update_player_pos"
+	//Networking events
+	NET_SOCKET_PLAYER_LOGIN: "socket_player_login",
+	NET_SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+	NET_INIT_WORLD: "init_map",
+	NET_WORLD_STATE_UPDATE: "state_update",
+	NET_CLIENT_POSE_CHANGE: "client_pose_change",
 }
 
 module.exports = Constants;

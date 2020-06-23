@@ -13,7 +13,7 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.INITIALIZE_MAP, function(socketID, worldInfo) {
+		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
 			main.world = new World(socketID, socket, worldInfo);
 			//main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
 			//main.world.initPlayers(worldInfo.name, worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
@@ -59,7 +59,7 @@ const main = {
 			mainMenu.style.opacity = 0;
 			main.pauseMenuOpacity = 0;
 
-			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
+			socket.emit(Constants.NET_SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
 			roomIDInput.value = "";
 			usernameInput.value = "";
 		});
@@ -102,7 +102,7 @@ const main = {
 			document.getElementById("mainMenu").style.opacity = 1;
 			main.world.dispose();
 			main.world = null;
-			socket.emit(Constants.SOCKET_PLAYER_LEAVE_ROOM);
+			socket.emit(Constants.NET_SOCKET_PLAYER_LEAVE_ROOM);
 		});
 
 		mouseSensitivityRange.oninput = function() {
@@ -175,18 +175,16 @@ var Constants = {
 	SERVER_SEND_RATE: 10,
 	MAP_BLOCK_LENGTH: 5,
 
-	SOCKET_PLAYER_LOGIN: "socket_player_login",
-	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+	//Debug flags
+	DEBUG_SHOW_ENTITY_BOUNDING_BOXES: true,
+	DEBUG_DO_ENTITY_INTERPOLATION: true,
 
-	INITIALIZE_MAP: "init_map",
-	WORLD_STATE_UPDATE: "state_update",
-	CLIENT_POSE_CHANGE: "client_pose_change",
-
-	//TODO delete these
-	ADD_PLAYER: "new_player",
-	REMOVE_PLAYER: "remove_player",
-	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
-	SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION: "server_update_player_pos"
+	//Networking events
+	NET_SOCKET_PLAYER_LOGIN: "socket_player_login",
+	NET_SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+	NET_INIT_WORLD: "init_map",
+	NET_WORLD_STATE_UPDATE: "state_update",
+	NET_CLIENT_POSE_CHANGE: "client_pose_change",
 }
 
 module.exports = Constants;
@@ -194,8 +192,11 @@ module.exports = Constants;
 },{}],3:[function(require,module,exports){
 const LMath = {
 	lerp: function(x0, x1, percent) {
-		Math.max(Math.min(percent, 1.0), 0.0);
-		return x0 + (x1 - x0) * percent;
+		var p = LMath.clamp(percent, 0.0, 1.0);
+		return x0 + (x1 - x0) * p;
+	},
+	clamp: function(value, min, max) {
+		return Math.max(Math.min(value, max), min);
 	}
 }
 
@@ -285,6 +286,8 @@ class BufferMapBlock {
 module.exports = BufferMapBlock;
 
 },{"../common/Constants":2,"./PlateFrame":8}],5:[function(require,module,exports){
+var Constants = require("../common/Constants");
+
 class Entity {
 	constructor(x, y, z, world) {
 		this.position = new THREE.Vector3(x, y, z);
@@ -292,19 +295,37 @@ class Entity {
 
 		this.positionBuffer = [];
 	}
+	withBoundingBox(boundingGeometry, posOffset = new THREE.Vector3(0, 0, 0)) {
+		this.boundingGeometry = boundingGeometry;
+		this.boundingPosOffset = posOffset;
+
+		if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) {
+			var wireMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe:true } );
+			this.boundingBoxDebugMesh = new THREE.Mesh( this.boundingGeometry, wireMaterial );
+			this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
+			this.world.scene.add( this.boundingBoxDebugMesh );
+		}
+	}
+	dispose() {
+		if (this.boundingBoxDebugMesh != undefined) this.world.scene.remove(this.boundingBoxDebugMesh);
+	}
 	insertPositionWithTime(timestamp, state) {
 		this.positionBuffer.push({
 			time: timestamp,
 			state: state
 		})
 	}
-	update() {}
-	render() {}
+	update(delta) {}
+	updateBoundingBox() {
+		if (this.boundingBoxDebugMesh != undefined) {
+			this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
+		}
+	}
 }
 
 module.exports = Entity;
 
-},{}],6:[function(require,module,exports){
+},{"../common/Constants":2}],6:[function(require,module,exports){
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -509,12 +530,14 @@ class NetPlayer extends Entity {
 		if (this.world.clientSocketID != this.socketID) {
 			this.loadModel(x, y, z);
 			this.loadUsername(this.name);
+			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
 		}
 	}
 	dispose() {
 		if (this.world.clientSocketID != this.socketID) {
 			this.world.scene.remove(this.model);
 			this.world.scene.remove(this.textMesh);
+			super.dispose();
 		}
 	}
 	loadModel() {
@@ -536,7 +559,7 @@ class NetPlayer extends Entity {
       textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
       	textGeom = new THREE.TextBufferGeometry( username, {
          	font: font,
-            size: Constants.MAP_BLOCK_LENGTH/(3*username.length),
+            size: Constants.MAP_BLOCK_LENGTH/(5*Math.log(username.length + 2)),
             height: 0.1,
             curveSegments: 12,
             bevelEnabled: false,
@@ -554,7 +577,10 @@ class NetPlayer extends Entity {
    	});
 	}
 	update(delta) {
-		if (this.world.clientSocketID != this.socketID) this.updatePlayerName();
+		if (this.world.clientSocketID != this.socketID) {
+			this.updatePlayerName();
+			if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) this.updateBoundingBox();
+		}
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
@@ -654,7 +680,6 @@ class World {
 		this.clientSocketID = socketID;
 		this.socket = socket;
 		this.initServerListeners();
-		this.entityInterpolation = true;
 
 		//Initialize players
 		this.netPlayers = new Map();
@@ -668,11 +693,11 @@ class World {
 		this.controller.dispose();
 		this.scene.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
-		this.socket.off(Constants.WORLD_STATE_UPDATE);
+		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
 	}
 	initServerListeners() {
 		var self = this;
-		this.socket.on(Constants.WORLD_STATE_UPDATE, function(worldInfo) {
+		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, function(worldInfo) {
 			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
 			//Do the same for entities when they are included TODO
 		});
@@ -684,11 +709,11 @@ class World {
 				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 				this.addNetPlayer(netPlayer);
 			} else {
-				if (!this.entityInterpolation) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				if (!Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 			}
-			if (this.entityInterpolation) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+			if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 		});
-		if (this.entityInterpolation) {
+		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 			this.netPlayers.forEach((nPlayer) => {
 				if (nPlayer.socketID == this.clientSocketID) return;
 				if (!players.some((player) => {return nPlayer.socketID == player.socketID;})) {
@@ -718,7 +743,7 @@ class World {
 		this.controller.turnSpeed = TURN_SPEED;
 		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
+			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
 		});
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
@@ -737,7 +762,7 @@ class World {
 	removeNetPlayer(socketID) {
 		if (this.netPlayers.has(socketID)) {
 			this.netPlayers.get(socketID).dispose();
-      	this.netPlayers.delete(socketID);
+   		this.netPlayers.delete(socketID);
 			this.size--;
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
@@ -820,7 +845,7 @@ class World {
 			if (nPlayer.socketID == this.clientSocketID) return;
 			nPlayer.update(delta);
 		});
-		if (this.entityInterpolation) this.interpolateEntities();
+		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();
 	}
 	interpolateEntities() {
 		var delayedTime = Date.now() - (1000.0 / Constants.SERVER_SEND_RATE);
@@ -848,10 +873,10 @@ class World {
 	}
 	render() {
 		this.renderer.setClearColor(0x0a0806, 1);
-      this.renderer.setPixelRatio(window.devicePixelRatio);
+   	this.renderer.setPixelRatio(window.devicePixelRatio);
 
-      this.renderer.setSize(this.screenW, this.screenH);
-      this.renderer.render(this.scene, this.camera);
+   	this.renderer.setSize(this.screenW, this.screenH);
+   	this.renderer.render(this.scene, this.camera);
 	}
 	lightUp(x, y, z) {
 		var pLight = new THREE.PointLight( 0xffffff, 0.5, Constants.MAP_BLOCK_LENGTH);

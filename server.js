@@ -39,7 +39,7 @@ function removeSocket(socket) {
 }
 
 io.on("connection", function(socket) {
-	socket.on(Constants.SOCKET_PLAYER_LOGIN, function(roomID, username) {
+	socket.on(Constants.NET_SOCKET_PLAYER_LOGIN, function(roomID, username) {
 		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 
 		if (roomID == "") roomID = Math.floor(Math.random() * Math.pow(10, ROOM_ID_MAX_LENGTH)) + "";
@@ -54,10 +54,10 @@ io.on("connection", function(socket) {
 		}
 		room.addPlayer(username, socket);
 	});
-	socket.on(Constants.SOCKET_PLAYER_LEAVE_ROOM, function() {
+	socket.on(Constants.NET_SOCKET_PLAYER_LEAVE_ROOM, function() {
 		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
 	})
-	socket.on(Constants.CLIENT_POSE_CHANGE, function(x, y, z, rot_x, rot_y) {
+	socket.on(Constants.NET_CLIENT_POSE_CHANGE, function(x, y, z, rot_x, rot_y) {
 		var roomID = clientToRoomMap.get(socket.id);
 		var room = rooms.get(roomID);
 		room.updatePlayerPose(x, y, z, rot_x, rot_y, socket.id);

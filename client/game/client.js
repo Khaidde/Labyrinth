@@ -12,7 +12,7 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.INITIALIZE_MAP, function(socketID, worldInfo) {
+		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
 			main.world = new World(socketID, socket, worldInfo);
 			//main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
 			//main.world.initPlayers(worldInfo.name, worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
@@ -58,7 +58,7 @@ const main = {
 			mainMenu.style.opacity = 0;
 			main.pauseMenuOpacity = 0;
 
-			socket.emit(Constants.SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
+			socket.emit(Constants.NET_SOCKET_PLAYER_LOGIN, roomIDInput.value, usernameInput.value);
 			roomIDInput.value = "";
 			usernameInput.value = "";
 		});
@@ -101,7 +101,7 @@ const main = {
 			document.getElementById("mainMenu").style.opacity = 1;
 			main.world.dispose();
 			main.world = null;
-			socket.emit(Constants.SOCKET_PLAYER_LEAVE_ROOM);
+			socket.emit(Constants.NET_SOCKET_PLAYER_LEAVE_ROOM);
 		});
 
 		mouseSensitivityRange.oninput = function() {

@@ -2,10 +2,6 @@ var Constants = require("../client/game/common/Constants");
 var Player = require("./Player");
 var MapGenerator = require("./MapGenerator");
 
-class RoomInfo {
-
-}
-
 class Room {
 	constructor(roomID, io) {
 		this.roomID = roomID;
@@ -34,7 +30,7 @@ class Room {
 			this.players.set(socketID, player);
 			this.size++;
 
-			socket.emit(Constants.INITIALIZE_MAP, socketID, {
+			socket.emit(Constants.NET_INIT_WORLD, socketID, {
 				map: this.map,
 				width: this.width,
 				height: this.height,
@@ -75,7 +71,7 @@ class Room {
 	update(delta) {
 		this.totalDelta += delta;
 		while (this.totalDelta >= 1000.0 / Constants.SERVER_SEND_RATE) {
-			this.io.in(this.roomID).emit(Constants.WORLD_STATE_UPDATE, this.createState());
+			this.io.in(this.roomID).emit(Constants.NET_WORLD_STATE_UPDATE, this.createState());
 			this.totalDelta -= 1000.0 / Constants.SERVER_SEND_RATE;
 		}
 		this.players.forEach(() => {

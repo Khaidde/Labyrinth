@@ -11,12 +11,14 @@ class NetPlayer extends Entity {
 		if (this.world.clientSocketID != this.socketID) {
 			this.loadModel(x, y, z);
 			this.loadUsername(this.name);
+			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
 		}
 	}
 	dispose() {
 		if (this.world.clientSocketID != this.socketID) {
 			this.world.scene.remove(this.model);
 			this.world.scene.remove(this.textMesh);
+			super.dispose();
 		}
 	}
 	loadModel() {
@@ -38,7 +40,7 @@ class NetPlayer extends Entity {
       textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
       	textGeom = new THREE.TextBufferGeometry( username, {
          	font: font,
-            size: Constants.MAP_BLOCK_LENGTH/(3*username.length),
+            size: Constants.MAP_BLOCK_LENGTH/(5*Math.log(username.length + 2)),
             height: 0.1,
             curveSegments: 12,
             bevelEnabled: false,
@@ -56,7 +58,10 @@ class NetPlayer extends Entity {
    	});
 	}
 	update(delta) {
-		if (this.world.clientSocketID != this.socketID) this.updatePlayerName();
+		if (this.world.clientSocketID != this.socketID) {
+			this.updatePlayerName();
+			if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) this.updateBoundingBox();
+		}
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
