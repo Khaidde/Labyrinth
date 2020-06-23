@@ -664,14 +664,10 @@ class World {
 				if (world.netPlayers.get(player.socketID) == undefined) {
 					var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, world);
 					world.addNetPlayer(netPlayer);
-					console.log(world.netPlayers);
 				} else {
 					world.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 				}
 			});
-			if (players.length > 0) {
-				console.log(":::" + world.netPlayers);
-			}
 			//Do the same for entities when they are included TODO
 		});
 	}
