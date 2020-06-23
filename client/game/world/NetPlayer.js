@@ -1,6 +1,6 @@
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
-var Constants = require("../Constants");
+var Constants = require("../common/Constants");
 
 class NetPlayer extends Entity {
 	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
@@ -20,6 +20,7 @@ class NetPlayer extends Entity {
 		}
 	}
 	loadModel() {
+		//Move all this code into a separate file for loading assets at runtime TODO
 		var loader = new THREE.GLTFLoader();
 		var self = this;
 		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {

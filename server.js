@@ -3,7 +3,7 @@ var http = require("http");
 var path = require("path");
 var socketIO = require("socket.io");
 
-var Constants = require("./client/game/Constants");
+var Constants = require("./client/game/common/Constants");
 var Room = require("./server/Room");
 
 var app = express();

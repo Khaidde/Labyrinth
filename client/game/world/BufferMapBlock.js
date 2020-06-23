@@ -1,5 +1,5 @@
 var PlateFrame = require("./PlateFrame");
-var Constants = require("../Constants");
+var Constants = require("../common/Constants");
 
 class BufferMapBlock {
 	constructor(w, e, n, s, x, y, alt, world){

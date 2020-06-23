@@ -1,7 +1,7 @@
 var screenW;
 var screenH;
 
-var Constants = require("./Constants");
+var Constants = require("./common/Constants");
 
 var World = require("./world/World");
 

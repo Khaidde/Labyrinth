@@ -1,30 +1,8 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-var Constants = {
-	FPS: 60,
-	SERVER_SEND_RATE: 10,
-	MAP_BLOCK_LENGTH: 5,
-
-	SOCKET_PLAYER_LOGIN: "socket_player_login",
-	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
-
-	INITIALIZE_MAP: "init_map",
-	WORLD_STATE_UPDATE: "state_update",
-	CLIENT_POSE_CHANGE: "client_pose_change",
-
-	//TODO delete these
-	ADD_PLAYER: "new_player",
-	REMOVE_PLAYER: "remove_player",
-	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
-	SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION: "server_update_player_pos"
-}
-
-module.exports = Constants;
-
-},{}],2:[function(require,module,exports){
 var screenW;
 var screenH;
 
-var Constants = require("./Constants");
+var Constants = require("./common/Constants");
 
 var World = require("./world/World");
 
@@ -191,9 +169,31 @@ window.onload =
   		}, 1000 / Constants.FPS);
   	}
 
-},{"./Constants":1,"./world/World":8}],3:[function(require,module,exports){
+},{"./common/Constants":2,"./world/World":8}],2:[function(require,module,exports){
+var Constants = {
+	FPS: 60,
+	SERVER_SEND_RATE: 10,
+	MAP_BLOCK_LENGTH: 5,
+
+	SOCKET_PLAYER_LOGIN: "socket_player_login",
+	SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+
+	INITIALIZE_MAP: "init_map",
+	WORLD_STATE_UPDATE: "state_update",
+	CLIENT_POSE_CHANGE: "client_pose_change",
+
+	//TODO delete these
+	ADD_PLAYER: "new_player",
+	REMOVE_PLAYER: "remove_player",
+	CLIENT_TO_SERVER_UPDATE_PLAYER_POSITION: "client_update_player_pos",
+	SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION: "server_update_player_pos"
+}
+
+module.exports = Constants;
+
+},{}],3:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
-var Constants = require("../Constants");
+var Constants = require("../common/Constants");
 
 class BufferMapBlock {
 	constructor(w, e, n, s, x, y, alt, world){
@@ -274,8 +274,8 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"../Constants":1,"./PlateFrame":7}],4:[function(require,module,exports){
-   class Entity {
+},{"../common/Constants":2,"./PlateFrame":7}],4:[function(require,module,exports){
+class Entity {
 	constructor(x, y, z, world) {
 		this.position = new THREE.Vector3(x, y, z);
 		this.world = world;
@@ -482,7 +482,7 @@ module.exports = FPSController;
 },{}],6:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
-var Constants = require("../Constants");
+var Constants = require("../common/Constants");
 
 class NetPlayer extends Entity {
 	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
@@ -502,6 +502,7 @@ class NetPlayer extends Entity {
 		}
 	}
 	loadModel() {
+		//Move all this code into a separate file for loading assets at runtime TODO
 		var loader = new THREE.GLTFLoader();
 		var self = this;
 		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
@@ -564,7 +565,7 @@ class NetPlayer extends Entity {
 
 module.exports = NetPlayer;
 
-},{"../Constants":1,"./BufferMapBlock":3,"./Entity":4}],7:[function(require,module,exports){
+},{"../common/Constants":2,"./BufferMapBlock":3,"./Entity":4}],7:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -601,7 +602,7 @@ class PlateFrame{
 module.exports = PlateFrame;
 
 },{}],8:[function(require,module,exports){
-var Constants = require("../Constants");
+var Constants = require("../common/Constants");
 
 var Entity = require("./Entity");
 var NetPlayer = require("./NetPlayer");
@@ -650,24 +651,12 @@ class World {
 		this.controller.dispose();
 		this.scene.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
-		this.socket.off(Constants.ADD_PLAYER);
-		this.socket.off(Constants.REMOVE_PLAYER);
-		this.socket.off(Constants.SERVER_TO_CLIENT_UPDATE_PLAYER_POSITION);
+		this.socket.off(Constants.WORLD_STATE_UPDATE);
 	}
 	initServerListeners() { //TODO fix all of this
 		var self = this;
 		this.socket.on(Constants.WORLD_STATE_UPDATE, function(worldInfo) {
-			var players = worldInfo.players;
-			var world = self;
-			players.forEach((player) => {
-				if (player.socketID == world.clientSocketID) return;
-				if (world.netPlayers.get(player.socketID) == undefined) {
-					var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, world);
-					world.addNetPlayer(netPlayer);
-				} else {
-					world.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
-				}
-			});
+			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
 			//Do the same for entities when they are included TODO
 		});
 	}
@@ -685,13 +674,13 @@ class World {
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
 		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
-
 		this.controller.addPoseChangeListener((pos, rot) => {
 			self.socket.emit(Constants.CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
 		});
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
+		this.updateNetPlayers(worldInfo.initialWorldState.players);
 	}
 	initMap(worldInfo) {
 		//Map mesh
@@ -709,6 +698,72 @@ class World {
 		this.scene.add( ambient_light );
 
 		this.testSphere();
+	}
+	interpretMap(map, width, height) {
+		for (var y = 0; y < height; y++) {
+			for (var x = 0; x < width; x++) {
+				var l, r, t, b;
+
+				if (map[x + y * width] == undefined)
+					continue;
+
+				if (y == 0) {
+					t = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
+					b = map[x + (y + 1) * width] - map[x + y * width];
+				} else if (y == height - 1) {
+					t = map[x + (y - 1) * width] - map[x + y * width];
+					b = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
+				} else {
+					t = map[x + (y - 1) * width] - map[x + y * width];
+					b = map[x + (y + 1) * width] - map[x + y * width];
+				}
+
+				if (x == 0) {
+					l = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
+					r = map[(x + 1) + y * width] - map[x + y * width];
+				} else if (x == width - 1) {
+					l = map[(x - 1) + y * width] - map[x + y * width];
+					r = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
+				} else {
+					l = map[(x - 1) + y * width] - map[x + y * width];
+					r = map[(x + 1) + y * width] - map[x + y * width];
+				}
+				new BufferMapBlock(l, r, t, b, x*Constants.MAP_BLOCK_LENGTH, y*Constants.MAP_BLOCK_LENGTH, map[x + y * width], this).create();
+			}
+		}
+	}
+	setUpMap() {
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
+	}
+	testSphere(){
+		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
+		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
+		var mesh = new THREE.Mesh( geometry, material );
+		mesh.material.color.setHex( 0xffff00 );
+		mesh.castShadow = true;
+		mesh.receiveShadow = false;
+		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
+		this.scene.add( mesh );
+	}
+	updateNetPlayers(players, removePlayerIDs) {
+		players.forEach((player) => {
+			if (player.socketID == this.clientSocketID) return;
+			if (this.netPlayers.get(player.socketID) == undefined) {
+				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
+				this.addNetPlayer(netPlayer);
+			} else {
+				this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+			}
+		});
+		if (removePlayerIDs != undefined) {
+			removePlayerIDs.forEach((socketID) => {
+				this.removeNetPlayer(socketID);
+			});
+		}
 	}
 	addNetPlayer(netPlayer) {
 		var socketID = netPlayer.socketID;
@@ -752,58 +807,8 @@ class World {
 		pLight.castShadow = false;
 		this.scene.add( pLight );
 	}
-	testSphere(){
-		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
-		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
-		var mesh = new THREE.Mesh( geometry, material );
-		mesh.material.color.setHex( 0xffff00 );
-		mesh.castShadow = true;
-		mesh.receiveShadow = false;
-		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
-		this.scene.add( mesh );
-	}
-	interpretMap(map, width, height) {
-		for (var y = 0; y < height; y++) {
-			for (var x = 0; x < width; x++) {
-				var l, r, t, b;
-
-				if (map[x + y * width] == undefined)
-					continue;
-
-				if (y == 0) {
-					t = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
-					b = map[x + (y + 1) * width] - map[x + y * width];
-				} else if (y == height - 1) {
-					t = map[x + (y - 1) * width] - map[x + y * width];
-					b = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
-				} else {
-					t = map[x + (y - 1) * width] - map[x + y * width];
-					b = map[x + (y + 1) * width] - map[x + y * width];
-				}
-
-				if (x == 0) {
-					l = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
-					r = map[(x + 1) + y * width] - map[x + y * width];
-				} else if (x == width - 1) {
-					l = map[(x - 1) + y * width] - map[x + y * width];
-					r = Constants.MAP_BLOCK_LENGTH - map[x + y * width];
-				} else {
-					l = map[(x - 1) + y * width] - map[x + y * width];
-					r = map[(x + 1) + y * width] - map[x + y * width];
-				}
-				new BufferMapBlock(l, r, t, b, x*Constants.MAP_BLOCK_LENGTH, y*Constants.MAP_BLOCK_LENGTH, map[x + y * width], this).create();
-			}
-		}
-	}
-	setUpMap() {
-		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
-		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
-		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
-		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
-		this.bufferMapGeom.setIndex(this.indices);
-	}
 }
 
 module.exports = World;
 
-},{"../Constants":1,"./BufferMapBlock":3,"./Entity":4,"./FPSController":5,"./NetPlayer":6}]},{},[2]);
+},{"../common/Constants":2,"./BufferMapBlock":3,"./Entity":4,"./FPSController":5,"./NetPlayer":6}]},{},[1]);

@@ -1,4 +1,4 @@
-var Constants = require("../client/game/Constants");
+var Constants = require("../client/game/common/Constants");
 var Player = require("./Player");
 var MapGenerator = require("./MapGenerator");
 
@@ -13,7 +13,7 @@ class Room {
 		this.size = 0;
 		this.players = new Map();
 		this.currentTickPlayerState = [];
-		this.toRemovePlayers = [];
+		this.toRemovePlayerIDs = [];
 
 		this.width = 15;
 		this.height = 15;
@@ -51,6 +51,7 @@ class Room {
 		if (this.players.has(socketID)) {
 			console.log(this.players.get(socketID).name + " has left the room (" + this.roomID + ")");
       	this.players.delete(socketID);
+			this.toRemovePlayerIDs.push(socketID);
 			this.size--;
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
@@ -74,7 +75,6 @@ class Room {
 	update(delta) {
 		this.totalDelta += delta;
 		while (this.totalDelta >= 1000 / Constants.SERVER_SEND_RATE) {
-			//Send state to all sockets
 			this.io.in(this.roomID).emit(Constants.WORLD_STATE_UPDATE, this.createState());
 			this.totalDelta -= 1000 / Constants.SERVER_SEND_RATE;
 		}
@@ -84,9 +84,11 @@ class Room {
 	}
 	createState() {
 		var state = {
-			players: this.currentTickPlayerState//Array.from(this.players.values())
+			players: this.currentTickPlayerState,
+			removePlayerIDs: this.toRemovePlayerIDs
 		}
 		this.currentTickPlayerState = [];
+		this.toRemovePlayerIDs = [];
 		return state;
 	}
 }
