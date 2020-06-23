@@ -67,12 +67,12 @@ io.on("connection", function(socket) {
 	});
 });
 
-var lastUpdateTime = (new Date()).getTime();
+var lastUpdateTime = Date.now();
 setInterval(function() {
-	var currentTime = (new Date()).getTime();
+	var currentTime = Date.now();
 	var delta = currentTime - lastUpdateTime;
 	rooms.forEach(function(room) {
 		room.update(delta);
 	});
 	lastUpdateTime = currentTime;
-}, 1000 / Constants.FPS);
+}, 1000.0 / Constants.FPS);

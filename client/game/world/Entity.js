@@ -5,6 +5,12 @@ class Entity {
 
 		this.positionBuffer = [];
 	}
+	insertPositionWithTime(timestamp, state) {
+		this.positionBuffer.push({
+			time: timestamp,
+			state: state
+		})
+	}
 	update() {}
 	render() {}
 }

@@ -159,17 +159,17 @@ window.onload =
 		main.updateSize();
 		main.init();
 
-		var lastUpdateTime = (new Date()).getTime();
+		var lastUpdateTime = Date.now();
 		setInterval(function() {
-			var currentTime = (new Date()).getTime();
+			var currentTime = Date.now();
 			var delta = currentTime - lastUpdateTime;
     		main.update(delta);
     		main.render();
 			lastUpdateTime = currentTime;
-  		}, 1000 / Constants.FPS);
+  		}, 1000.0 / Constants.FPS);
   	}
 
-},{"./common/Constants":2,"./world/World":8}],2:[function(require,module,exports){
+},{"./common/Constants":2,"./world/World":9}],2:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
 	SERVER_SEND_RATE: 10,
@@ -192,6 +192,16 @@ var Constants = {
 module.exports = Constants;
 
 },{}],3:[function(require,module,exports){
+const LMath = {
+	lerp: function(x0, x1, percent) {
+		Math.max(Math.min(percent, 1.0), 0.0);
+		return x0 + (x1 - x0) * percent;
+	}
+}
+
+module.exports = LMath;
+
+},{}],4:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 var Constants = require("../common/Constants");
 
@@ -274,7 +284,7 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"../common/Constants":2,"./PlateFrame":7}],4:[function(require,module,exports){
+},{"../common/Constants":2,"./PlateFrame":8}],5:[function(require,module,exports){
 class Entity {
 	constructor(x, y, z, world) {
 		this.position = new THREE.Vector3(x, y, z);
@@ -282,13 +292,19 @@ class Entity {
 
 		this.positionBuffer = [];
 	}
+	insertPositionWithTime(timestamp, state) {
+		this.positionBuffer.push({
+			time: timestamp,
+			state: state
+		})
+	}
 	update() {}
 	render() {}
 }
 
 module.exports = Entity;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -479,7 +495,7 @@ class FPSController {
 
 module.exports = FPSController;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 var Constants = require("../common/Constants");
@@ -565,7 +581,7 @@ class NetPlayer extends Entity {
 
 module.exports = NetPlayer;
 
-},{"../common/Constants":2,"./BufferMapBlock":3,"./Entity":4}],7:[function(require,module,exports){
+},{"../common/Constants":2,"./BufferMapBlock":4,"./Entity":5}],8:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -601,8 +617,9 @@ class PlateFrame{
 
 module.exports = PlateFrame;
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var Constants = require("../common/Constants");
+var LMath = require("../common/Math/LMath");
 
 var Entity = require("./Entity");
 var NetPlayer = require("./NetPlayer");
@@ -637,14 +654,14 @@ class World {
 		this.clientSocketID = socketID;
 		this.socket = socket;
 		this.initServerListeners();
+		this.entityInterpolation = true;
 
+		//Initialize players
 		this.netPlayers = new Map();
 		var clientPlayer = worldInfo.clientPlayer;
 		this.initPlayer(worldInfo);
 
 		this.initMap(worldInfo);
-
-		this.worldStateBuffer = worldInfo;
 	}
 	dispose() {
 		this.bufferMapGeom.dispose();
@@ -653,12 +670,38 @@ class World {
 		this.domElement.parentElement.removeChild(this.domElement);
 		this.socket.off(Constants.WORLD_STATE_UPDATE);
 	}
-	initServerListeners() { //TODO fix all of this
+	initServerListeners() {
 		var self = this;
 		this.socket.on(Constants.WORLD_STATE_UPDATE, function(worldInfo) {
 			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
 			//Do the same for entities when they are included TODO
 		});
+	}
+	updateNetPlayers(players, removePlayerIDs) {
+		players.forEach((player) => {
+			if (player.socketID == this.clientSocketID) return;
+			if (this.netPlayers.get(player.socketID) == undefined) {
+				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
+				this.addNetPlayer(netPlayer);
+			} else {
+				if (!this.entityInterpolation) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+			}
+			if (this.entityInterpolation) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+		});
+		if (this.entityInterpolation) {
+			this.netPlayers.forEach((nPlayer) => {
+				if (nPlayer.socketID == this.clientSocketID) return;
+				if (!players.some((player) => {return nPlayer.socketID == player.socketID;})) {
+					var player = this.netPlayers.get(nPlayer.socketID);
+					player.insertPositionWithTime(Date.now(), player.positionBuffer[player.positionBuffer.length - 1].state);
+				}
+			});
+		}
+		if (removePlayerIDs != undefined) {
+			removePlayerIDs.forEach((socketID) => {
+				this.removeNetPlayer(socketID);
+			});
+		}
 	}
 	initPlayer(worldInfo) {
 		var self = this;
@@ -681,6 +724,24 @@ class World {
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
 		this.updateNetPlayers(worldInfo.initialWorldState.players);
+	}
+	addNetPlayer(netPlayer) {
+		var socketID = netPlayer.socketID;
+		if (!this.netPlayers.has(socketID)) {
+			this.netPlayers.set(socketID, netPlayer);
+			this.size++;
+		} else {
+			throw "player {" + socketID + "} already exists";
+		}
+	}
+	removeNetPlayer(socketID) {
+		if (this.netPlayers.has(socketID)) {
+			this.netPlayers.get(socketID).dispose();
+      	this.netPlayers.delete(socketID);
+			this.size--;
+   	} else {
+			throw "player {" + socketID + "} does not exist and can't be removed";
+		}
 	}
 	initMap(worldInfo) {
 		//Map mesh
@@ -749,40 +810,6 @@ class World {
 		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
 		this.scene.add( mesh );
 	}
-	updateNetPlayers(players, removePlayerIDs) {
-		players.forEach((player) => {
-			if (player.socketID == this.clientSocketID) return;
-			if (this.netPlayers.get(player.socketID) == undefined) {
-				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
-				this.addNetPlayer(netPlayer);
-			} else {
-				this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
-			}
-		});
-		if (removePlayerIDs != undefined) {
-			removePlayerIDs.forEach((socketID) => {
-				this.removeNetPlayer(socketID);
-			});
-		}
-	}
-	addNetPlayer(netPlayer) {
-		var socketID = netPlayer.socketID;
-		if (!this.netPlayers.has(socketID)) {
-			this.netPlayers.set(socketID, netPlayer);
-			this.size++;
-		} else {
-			throw "player {" + socketID + "} already exists";
-		}
-	}
-	removeNetPlayer(socketID) {
-		if (this.netPlayers.has(socketID)) {
-			this.netPlayers.get(socketID).dispose();
-      	this.netPlayers.delete(socketID);
-			this.size--;
-   	} else {
-			throw "player {" + socketID + "} does not exist and can't be removed";
-		}
-	}
 	adjustWindowSize(screenW, screenH) {
 		this.screenW = screenW;
 		this.screenH = screenH;
@@ -792,6 +819,31 @@ class World {
 		this.netPlayers.forEach((nPlayer) => {
 			if (nPlayer.socketID == this.clientSocketID) return;
 			nPlayer.update(delta);
+		});
+		if (this.entityInterpolation) this.interpolateEntities();
+	}
+	interpolateEntities() {
+		var delayedTime = Date.now() - (1000.0 / Constants.SERVER_SEND_RATE);
+		var last = 0;
+		var next = 1;
+
+		this.netPlayers.forEach((nPlayer) => {
+			if (nPlayer.socketID == this.clientSocketID) return;
+			var buffer = nPlayer.positionBuffer;
+
+			while(buffer.length >= 2 && buffer[next].time <= delayedTime) {
+				buffer.shift();
+			}
+
+			if (buffer.length >= 2 && buffer[last].time <= delayedTime && buffer[next].time >= delayedTime) {
+				var timePercent = (delayedTime - buffer[last].time) / (buffer[next].time - buffer[last].time)
+				var px = LMath.lerp(buffer[last].state.x, buffer[next].state.x, timePercent);
+				var py = LMath.lerp(buffer[last].state.y, buffer[next].state.y, timePercent);
+				var pz = LMath.lerp(buffer[last].state.z, buffer[next].state.z, timePercent);
+				var pRotX = buffer[last].state.rot_x; //TODO use slerp for rotations
+				var pRotY = buffer[last].state.rot_y;; //TODO use slerp for rotations
+				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRotX, pRotY);
+			}
 		});
 	}
 	render() {
@@ -811,4 +863,4 @@ class World {
 
 module.exports = World;
 
-},{"../common/Constants":2,"./BufferMapBlock":3,"./Entity":4,"./FPSController":5,"./NetPlayer":6}]},{},[1]);
+},{"../common/Constants":2,"../common/Math/LMath":3,"./BufferMapBlock":4,"./Entity":5,"./FPSController":6,"./NetPlayer":7}]},{},[1]);

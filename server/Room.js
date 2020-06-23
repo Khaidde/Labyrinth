@@ -74,12 +74,12 @@ class Room {
 	}
 	update(delta) {
 		this.totalDelta += delta;
-		while (this.totalDelta >= 1000 / Constants.SERVER_SEND_RATE) {
+		while (this.totalDelta >= 1000.0 / Constants.SERVER_SEND_RATE) {
 			this.io.in(this.roomID).emit(Constants.WORLD_STATE_UPDATE, this.createState());
-			this.totalDelta -= 1000 / Constants.SERVER_SEND_RATE;
+			this.totalDelta -= 1000.0 / Constants.SERVER_SEND_RATE;
 		}
 		this.players.forEach(() => {
-
+			//Update players
 		})
 	}
 	createState() {

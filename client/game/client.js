@@ -158,12 +158,12 @@ window.onload =
 		main.updateSize();
 		main.init();
 
-		var lastUpdateTime = (new Date()).getTime();
+		var lastUpdateTime = Date.now();
 		setInterval(function() {
-			var currentTime = (new Date()).getTime();
+			var currentTime = Date.now();
 			var delta = currentTime - lastUpdateTime;
     		main.update(delta);
     		main.render();
 			lastUpdateTime = currentTime;
-  		}, 1000 / Constants.FPS);
+  		}, 1000.0 / Constants.FPS);
   	}
