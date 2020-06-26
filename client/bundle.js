@@ -1,8 +1,95 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+const Assets = {
+	loadingPercent: 0,
+	modelAssets: new Map(),
+	init() {
+		THREE.DefaultLoadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+			console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+		};
+
+		THREE.DefaultLoadingManager.onLoad = function ( ) {
+			console.log( 'Loading Complete!');
+		};
+
+		THREE.DefaultLoadingManager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+			console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+			Assets.loadingPercent = itemsLoaded / itemsTotal;
+		};
+
+		THREE.DefaultLoadingManager.onError = function ( url ) {
+			console.log( 'There was an error loading ' + url );
+		};
+		Assets.loadFont();
+
+		//Load models:
+		Assets.loadModel("Player", "client/models/Player/Player.gltf", (object) => {console.log(object)} ); //TODO delete callback, used for testing purposes
+	},
+	loadFont() {
+		var textLoad = new THREE.FontLoader();
+   	textLoad.load("client/fonts/Aldo the Apache_Regular.json", function ( font ) {
+			Assets.DEFAULT_FONT = font;
+   	});
+	},
+	loadModel(name, path, callback) {
+		var loader = new THREE.GLTFLoader();
+		loader.load(path, (object) => {
+			Assets.modelAssets.set(name, object);
+			callback(object);
+    	});
+	},
+	getGLTFModel(name) {
+		return Assets.modelAssets.get(name);
+	},
+	getModelClone(name) {
+		return clone(Assets.modelAssets.get(name).scene.children[0]);
+	}
+}
+
+function clone(source) { //Copied from Three.js SkeletonUtils
+	var sourceLookup = new Map();
+	var cloneLookup = new Map();
+
+	var clone = source.clone();
+
+	parallelTraverse( source, clone, function ( sourceNode, clonedNode ) {
+
+		sourceLookup.set( clonedNode, sourceNode );
+		cloneLookup.set( sourceNode, clonedNode );
+
+	} );
+
+	clone.traverse( function ( node ) {
+		if ( ! node.isSkinnedMesh ) return;
+
+		var clonedMesh = node;
+		var sourceMesh = sourceLookup.get( node );
+		var sourceBones = sourceMesh.skeleton.bones;
+
+		clonedMesh.skeleton = sourceMesh.skeleton.clone();
+		clonedMesh.bindMatrix.copy( sourceMesh.bindMatrix );
+		clonedMesh.skeleton.bones = sourceBones.map( function ( bone ) {
+			return cloneLookup.get( bone );
+		} );
+		clonedMesh.bind( clonedMesh.skeleton, clonedMesh.bindMatrix );
+	} );
+	return clone;
+}
+
+function parallelTraverse( a, b, callback ) {
+	callback( a, b );
+	for ( var i = 0; i < a.children.length; i ++ ) {
+		parallelTraverse( a.children[ i ], b.children[ i ], callback );
+	}
+}
+
+module.exports = Assets;
+
+},{}],2:[function(require,module,exports){
 var screenW;
 var screenH;
 
 var Constants = require("./common/Constants");
+var Assets = require("../Assets");
 
 var World = require("./world/World");
 
@@ -10,6 +97,7 @@ const socket = io();
 
 const main = {
 	init: function() {
+		Assets.init();
 		main.initMenu();
 		main.initPause();
 
@@ -169,7 +257,7 @@ window.onload =
   		}, 1000.0 / Constants.FPS);
   	}
 
-},{"./common/Constants":2,"./world/World":9}],2:[function(require,module,exports){
+},{"../Assets":1,"./common/Constants":3,"./world/World":10}],3:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
 	SERVER_SEND_RATE: 10,
@@ -189,7 +277,7 @@ var Constants = {
 
 module.exports = Constants;
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 const LMath = {
 	lerp: function(x0, x1, percent) {
 		var p = LMath.clamp(percent, 0.0, 1.0);
@@ -202,7 +290,7 @@ const LMath = {
 
 module.exports = LMath;
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 var Constants = require("../common/Constants");
 
@@ -272,7 +360,7 @@ class BufferMapBlock {
 			plateNum = this.world.plateNum;
 			general_term = [0+4*(plateNum-1), 1+4*(plateNum-1), 2+4*(plateNum-1), 2+4*(plateNum-1), 1+4*(plateNum-1), 3+4*(plateNum-1)];
 			this.world.indices = this.world.indices.concat(general_term);
-			//this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
+			this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
 			for (const vertex of west.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -285,8 +373,9 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"../common/Constants":2,"./PlateFrame":8}],5:[function(require,module,exports){
+},{"../common/Constants":3,"./PlateFrame":9}],6:[function(require,module,exports){
 var Constants = require("../common/Constants");
+var Assets = require("../../Assets");
 
 class Entity {
 	constructor(x, y, z, world) {
@@ -294,6 +383,11 @@ class Entity {
 		this.world = world;
 
 		this.positionBuffer = [];
+	}
+	withModel(assetName) {
+		this.model = Assets.getModelClone(assetName);
+		this.model.position.set(this.position.x, this.position.y, this.position.z);
+		this.world.scene.add(this.model);
 	}
 	withBoundingBox(boundingGeometry, posOffset = new THREE.Vector3(0, 0, 0)) {
 		this.boundingGeometry = boundingGeometry;
@@ -307,6 +401,7 @@ class Entity {
 		}
 	}
 	dispose() {
+		if (this.model != undefined) this.world.scene.remove(this.model);
 		if (this.boundingBoxDebugMesh != undefined) this.world.scene.remove(this.boundingBoxDebugMesh);
 	}
 	insertPositionWithTime(timestamp, state) {
@@ -315,17 +410,17 @@ class Entity {
 			state: state
 		})
 	}
-	update(delta) {}
+	update(delta) {
+		if (this.model != undefined) this.model.position.set(this.position.x, this.position.y, this.position.z);
+	}
 	updateBoundingBox() {
-		if (this.boundingBoxDebugMesh != undefined) {
-			this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
-		}
+		if (this.boundingBoxDebugMesh != undefined) this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
 	}
 }
 
 module.exports = Entity;
 
-},{"../common/Constants":2}],6:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":3}],7:[function(require,module,exports){
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -516,10 +611,11 @@ class FPSController {
 
 module.exports = FPSController;
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 var Constants = require("../common/Constants");
+var Assets = require("../../Assets");
 
 class NetPlayer extends Entity {
 	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
@@ -528,86 +624,60 @@ class NetPlayer extends Entity {
 		this.socketID = socketID;
 
 		if (this.world.clientSocketID != this.socketID) {
-			this.loadModel(x, y, z);
-			this.loadUsername(this.name);
-			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
-		}
-	}
-	dispose() {
-		if (this.world.clientSocketID != this.socketID) {
-			this.world.scene.remove(this.model);
-			this.world.scene.remove(this.textMesh);
-			super.dispose();
-		}
-	}
-	loadModel() {
-		//Move all this code into a separate file for loading assets at runtime TODO
-		var loader = new THREE.GLTFLoader();
-		var self = this;
-		loader.load('client/models/PREMADE_Helmet/DamagedHelmet.gltf', (gltf) => {
-      	self.model = gltf.scene.children[0];
-			self.model.position.x = self.position.x;
-			self.model.position.y = self.position.y;
-			self.model.position.z = self.position.z;
-			self.world.scene.add(self.model);
-    	});
-	}
-	loadUsername(username){
-   	var textLoad = new THREE.FontLoader();
-      var textGeom;
-		var self = this;
-      textLoad.load('client/fonts/Aldo the Apache_Regular.json', function ( font ) {
-      	textGeom = new THREE.TextBufferGeometry( username, {
-         	font: font,
-            size: Constants.MAP_BLOCK_LENGTH/(5*Math.log(username.length + 2)),
+			//Init Model Mesh and Animation testing
+			this.withModel("Player");
+			this.mixer = new THREE.AnimationMixer(this.model);
+			this.mixer.clipAction(Assets.getGLTFModel("Player").animations[2]).setDuration(1.3).play();
+
+			//Init Username Mesh
+			var textGeom = new THREE.TextBufferGeometry(this.name, {
+         	font: Assets.DEFAULT_FONT,
+            size: Constants.MAP_BLOCK_LENGTH/(5*Math.log(this.name.length + 2)),
             height: 0.1,
             curveSegments: 12,
             bevelEnabled: false,
    		});
-         var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff});
+			var textMat = new THREE.MeshBasicMaterial( { color: 0xffffff} );
 			textGeom.center();
-         self.textMesh = new THREE.Mesh(textGeom, textMat);
+         this.usernameMesh = new THREE.Mesh(textGeom, textMat);
+         this.usernameMesh.position.set(this.position.x, this.position.y + Constants.MAP_BLOCK_LENGTH / 2, this.position.z);
+			this.usernameMesh.lookAt(this.world.camera.position);
+         this.world.scene.add(this.usernameMesh);
 
-         self.textMesh.position.x = self.position.x;
-         self.textMesh.position.y = self.position.y+Constants.MAP_BLOCK_LENGTH/4;
-         self.textMesh.position.z = self.position.z;
-
-			self.textMesh.lookAt(self.world.camera.position);
-         self.world.scene.add(self.textMesh);
-   	});
+			//Init collision box
+			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
+		}
+	}
+	dispose() {
+		super.dispose();
+		if (this.world.clientSocketID != this.socketID) {
+			this.world.scene.remove(this.usernameMesh);
+		}
 	}
 	update(delta) {
+		super.update(delta);
 		if (this.world.clientSocketID != this.socketID) {
 			this.updatePlayerName();
 			if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) this.updateBoundingBox();
+			if (this.mixer != undefined) this.mixer.update(delta * 0.001);
 		}
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
-		this.position.x = x;
-		this.position.y = y;
-		this.position.z = z;
+		this.position.set(x, y, z);
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
-
-		if (this.model == undefined) return; //TODO temporary fix
-		this.model.position.x = x;
-		this.model.position.y = y;
-		this.model.position.z = z;
 	}
 	updatePlayerName() {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
-		if (this.textMesh == undefined) return; //TODO temporary fix
-		this.textMesh.lookAt(this.world.camera.position);
-		this.textMesh.position.x = this.position.x;
-		this.textMesh.position.y = this.position.y + Constants.MAP_BLOCK_LENGTH/4;
-		this.textMesh.position.z = this.position.z;
+		this.usernameMesh.position.set(this.position.x, this.position.y + Constants.MAP_BLOCK_LENGTH / 2, this.position.z);
+		this.usernameMesh.lookAt(this.world.camera.position);
 	}
 }
 
 module.exports = NetPlayer;
 
-},{"../common/Constants":2,"./BufferMapBlock":4,"./Entity":5}],8:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":3,"./BufferMapBlock":5,"./Entity":6}],9:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -643,7 +713,7 @@ class PlateFrame{
 
 module.exports = PlateFrame;
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var Constants = require("../common/Constants");
 var LMath = require("../common/Math/LMath");
 
@@ -888,4 +958,4 @@ class World {
 
 module.exports = World;
 
-},{"../common/Constants":2,"../common/Math/LMath":3,"./BufferMapBlock":4,"./Entity":5,"./FPSController":6,"./NetPlayer":7}]},{},[1]);
+},{"../common/Constants":3,"../common/Math/LMath":4,"./BufferMapBlock":5,"./Entity":6,"./FPSController":7,"./NetPlayer":8}]},{},[2]);

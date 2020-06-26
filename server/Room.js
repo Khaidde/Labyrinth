@@ -11,8 +11,8 @@ class Room {
 		this.currentTickPlayerState = [];
 		this.toRemovePlayerIDs = [];
 
-		this.width = 15;
-		this.height = 15;
+		this.width = 5;
+		this.height = 5;
 		this.map = new MapGenerator(this.width, this.height).generate();
 
 		this.totalDelta = 0;

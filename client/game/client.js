@@ -2,6 +2,7 @@ var screenW;
 var screenH;
 
 var Constants = require("./common/Constants");
+var Assets = require("../Assets");
 
 var World = require("./world/World");
 
@@ -9,6 +10,7 @@ const socket = io();
 
 const main = {
 	init: function() {
+		Assets.init();
 		main.initMenu();
 		main.initPause();
 

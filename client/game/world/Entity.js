@@ -1,4 +1,5 @@
 var Constants = require("../common/Constants");
+var Assets = require("../../Assets");
 
 class Entity {
 	constructor(x, y, z, world) {
@@ -6,6 +7,11 @@ class Entity {
 		this.world = world;
 
 		this.positionBuffer = [];
+	}
+	withModel(assetName) {
+		this.model = Assets.getModelClone(assetName);
+		this.model.position.set(this.position.x, this.position.y, this.position.z);
+		this.world.scene.add(this.model);
 	}
 	withBoundingBox(boundingGeometry, posOffset = new THREE.Vector3(0, 0, 0)) {
 		this.boundingGeometry = boundingGeometry;
@@ -19,6 +25,7 @@ class Entity {
 		}
 	}
 	dispose() {
+		if (this.model != undefined) this.world.scene.remove(this.model);
 		if (this.boundingBoxDebugMesh != undefined) this.world.scene.remove(this.boundingBoxDebugMesh);
 	}
 	insertPositionWithTime(timestamp, state) {
@@ -27,11 +34,11 @@ class Entity {
 			state: state
 		})
 	}
-	update(delta) {}
+	update(delta) {
+		if (this.model != undefined) this.model.position.set(this.position.x, this.position.y, this.position.z);
+	}
 	updateBoundingBox() {
-		if (this.boundingBoxDebugMesh != undefined) {
-			this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
-		}
+		if (this.boundingBoxDebugMesh != undefined) this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
 	}
 }
 
