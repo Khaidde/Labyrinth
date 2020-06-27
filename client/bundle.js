@@ -260,7 +260,7 @@ window.onload =
 },{"../Assets":1,"./common/Constants":3,"./world/World":10}],3:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
-	SERVER_SEND_RATE: 10,
+	SERVER_SEND_RATE: 20,
 	MAP_BLOCK_LENGTH: 5,
 
 	//Debug flags
@@ -642,12 +642,12 @@ class NetPlayer extends Entity {
 			this.activeAction = this.animations.get("Idle");
 			this.activeAction.play();
 
+			/*
 			document.addEventListener('keydown', (event) => {
 				if (event.keyCode == 32) {
 					self.fadeToActionAnim("Jump", 0.2);
 					function restore() {
 						self.mixer.removeEventListener("finished", restore);
-						console.log(self);
 						self.fadeToActionAnim("Idle", 0.2);
 					}
 					self.mixer.addEventListener("finished", restore);
@@ -663,7 +663,7 @@ class NetPlayer extends Entity {
 						self.fadeToActionAnim("Idle", 0.2);
 					}
 				}
-			}, false);
+			}, false);*/
 
 			//Init Username Mesh
 			var textGeom = new THREE.TextBufferGeometry(this.name, {
@@ -687,6 +687,7 @@ class NetPlayer extends Entity {
 	fadeToActionAnim(name, duration) {
 		var previousAction = this.activeAction;
 		this.activeAction = this.animations.get(name);
+		this.currentActionName = name;
 
 		if (previousAction !== this.activeAction) {
 			previousAction.fadeOut(duration);
@@ -715,6 +716,15 @@ class NetPlayer extends Entity {
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
+		if (this.position.x != x || this.position.y != y || this.position.z != z) {
+			if (this.currentActionName != "Walk") {
+				this.fadeToActionAnim("Walk", 0.2);
+			}
+		} else {
+			if (this.currentActionName != "Idle") {
+				this.fadeToActionAnim("Idle", 0.2);
+			}
+		}
 		this.position.set(x, y, z);
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
@@ -829,10 +839,14 @@ class World {
 			if (this.netPlayers.get(player.socketID) == undefined) {
 				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 				this.addNetPlayer(netPlayer);
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 			} else {
-				if (!Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
+					this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+				} else {
+					this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				}
 			}
-			if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 			this.netPlayers.forEach((nPlayer) => {

@@ -1,6 +1,6 @@
 var Constants = {
 	FPS: 60,
-	SERVER_SEND_RATE: 10,
+	SERVER_SEND_RATE: 20,
 	MAP_BLOCK_LENGTH: 5,
 
 	//Debug flags
