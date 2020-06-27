@@ -10,10 +10,46 @@ class NetPlayer extends Entity {
 		this.socketID = socketID;
 
 		if (this.world.clientSocketID != this.socketID) {
-			//Init Model Mesh and Animation testing
+			//Init Model Mesh
 			this.withModel("Player");
+
+			//Init animations
 			this.mixer = new THREE.AnimationMixer(this.model);
-			this.mixer.clipAction(Assets.getGLTFModel("Player").animations[2]).setDuration(1.3).play();
+			this.animations = new Map();
+			var self = this;
+			Assets.getGLTFModel("Player").animations.forEach((animation) => {
+				var action = self.mixer.clipAction(animation);
+				if (animation.name == "Jump") {
+					action.clampWhenFinished = true;
+        			action.loop = THREE.LoopOnce;
+				}
+				self.animations.set(animation.name, action);
+			});
+			this.activeAction = this.animations.get("Idle");
+			this.activeAction.play();
+
+			document.addEventListener('keydown', (event) => {
+				if (event.keyCode == 32) {
+					self.fadeToActionAnim("Jump", 0.2);
+					function restore() {
+						self.mixer.removeEventListener("finished", restore);
+						console.log(self);
+						self.fadeToActionAnim("Idle", 0.2);
+					}
+					self.mixer.addEventListener("finished", restore);
+				} else if (event.keyCode == 87) {
+					if (this.activeAction !== this.animations.get("Walk")) {
+						self.fadeToActionAnim("Walk", 0.2);
+					}
+				}
+			}, false);
+			document.addEventListener('keyup', (event) => {
+				if (event.keyCode == 87) {
+					if (this.activeAction !== this.animations.get("Idle")) {
+						self.fadeToActionAnim("Idle", 0.2);
+					}
+				}
+			}, false);
 
 			//Init Username Mesh
 			var textGeom = new THREE.TextBufferGeometry(this.name, {
@@ -33,6 +69,21 @@ class NetPlayer extends Entity {
 			//Init collision box
 			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
 		}
+	}
+	fadeToActionAnim(name, duration) {
+		var previousAction = this.activeAction;
+		this.activeAction = this.animations.get(name);
+
+		if (previousAction !== this.activeAction) {
+			previousAction.fadeOut(duration);
+		}
+
+		this.activeAction
+			.reset()
+			.setEffectiveTimeScale(1)
+			.setEffectiveWeight(1)
+			.fadeIn(duration)
+			.play();
 	}
 	dispose() {
 		super.dispose();
