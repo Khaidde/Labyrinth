@@ -28,12 +28,12 @@ class NetPlayer extends Entity {
 			this.activeAction = this.animations.get("Idle");
 			this.activeAction.play();
 
+			/*
 			document.addEventListener('keydown', (event) => {
 				if (event.keyCode == 32) {
 					self.fadeToActionAnim("Jump", 0.2);
 					function restore() {
 						self.mixer.removeEventListener("finished", restore);
-						console.log(self);
 						self.fadeToActionAnim("Idle", 0.2);
 					}
 					self.mixer.addEventListener("finished", restore);
@@ -49,7 +49,7 @@ class NetPlayer extends Entity {
 						self.fadeToActionAnim("Idle", 0.2);
 					}
 				}
-			}, false);
+			}, false);*/
 
 			//Init Username Mesh
 			var textGeom = new THREE.TextBufferGeometry(this.name, {
@@ -73,6 +73,7 @@ class NetPlayer extends Entity {
 	fadeToActionAnim(name, duration) {
 		var previousAction = this.activeAction;
 		this.activeAction = this.animations.get(name);
+		this.currentActionName = name;
 
 		if (previousAction !== this.activeAction) {
 			previousAction.fadeOut(duration);
@@ -101,6 +102,15 @@ class NetPlayer extends Entity {
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
+		if (this.position.x != x || this.position.y != y || this.position.z != z) {
+			if (this.currentActionName != "Walk") {
+				this.fadeToActionAnim("Walk", 0.2);
+			}
+		} else {
+			if (this.currentActionName != "Idle") {
+				this.fadeToActionAnim("Idle", 0.2);
+			}
+		}
 		this.position.set(x, y, z);
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;

@@ -62,10 +62,14 @@ class World {
 			if (this.netPlayers.get(player.socketID) == undefined) {
 				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 				this.addNetPlayer(netPlayer);
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 			} else {
-				if (!Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
+					this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+				} else {
+					this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+				}
 			}
-			if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 			this.netPlayers.forEach((nPlayer) => {
