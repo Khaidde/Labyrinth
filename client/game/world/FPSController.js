@@ -1,3 +1,5 @@
+var Utils = require("../common/Utils");
+
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -39,16 +41,10 @@ class FPSController {
 	initEvents() {
 		this.enabled = true;
 
-		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
-		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
-		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
-		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
-
-		function bind(scope, fn) {
-			return function onEvent() {
-				fn.apply(scope, arguments);
-			};
-		};
+		document.addEventListener("pointerlockchange", Utils.bind(this, this.onPointerlockChange), false);
+		document.addEventListener('mousemove', Utils.bind(this, this.onMouseMove), false);
+		document.addEventListener('keydown', Utils.bind(this, this.onKeyDown), false);
+		document.addEventListener('keyup', Utils.bind(this, this.onKeyUp), false);
 	}
 	initPose(x, y, z, rotX, rotY) {
 		this.position = new THREE.Vector3(x, y, z);

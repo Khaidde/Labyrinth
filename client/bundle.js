@@ -265,7 +265,7 @@ window.onload =
   		}, 1000.0 / Constants.FPS);
   	}
 
-},{"../Assets":1,"./common/Constants":3,"./world/World":10}],3:[function(require,module,exports){
+},{"../Assets":1,"./common/Constants":3,"./world/World":11}],3:[function(require,module,exports){
 var Constants = {
 	FPS: 60,
 	SERVER_SEND_RATE: 20,
@@ -299,6 +299,17 @@ const LMath = {
 module.exports = LMath;
 
 },{}],5:[function(require,module,exports){
+const Utils = {
+	bind: function(scope, fn) {
+		return function onEvent() {
+			fn.apply(scope, arguments);
+		};
+	}
+}
+
+module.exports = Utils;
+
+},{}],6:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 var Constants = require("../common/Constants");
 
@@ -381,7 +392,7 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"../common/Constants":3,"./PlateFrame":9}],6:[function(require,module,exports){
+},{"../common/Constants":3,"./PlateFrame":10}],7:[function(require,module,exports){
 var Constants = require("../common/Constants");
 var Assets = require("../../Assets");
 
@@ -428,7 +439,9 @@ class Entity {
 
 module.exports = Entity;
 
-},{"../../Assets":1,"../common/Constants":3}],7:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":3}],8:[function(require,module,exports){
+var Utils = require("../common/Utils");
+
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
 	constructor(camera, domElement) {
@@ -470,16 +483,10 @@ class FPSController {
 	initEvents() {
 		this.enabled = true;
 
-		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
-		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
-		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
-		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
-
-		function bind(scope, fn) {
-			return function onEvent() {
-				fn.apply(scope, arguments);
-			};
-		};
+		document.addEventListener("pointerlockchange", Utils.bind(this, this.onPointerlockChange), false);
+		document.addEventListener('mousemove', Utils.bind(this, this.onMouseMove), false);
+		document.addEventListener('keydown', Utils.bind(this, this.onKeyDown), false);
+		document.addEventListener('keyup', Utils.bind(this, this.onKeyUp), false);
 	}
 	initPose(x, y, z, rotX, rotY) {
 		this.position = new THREE.Vector3(x, y, z);
@@ -622,7 +629,7 @@ class FPSController {
 
 module.exports = FPSController;
 
-},{}],8:[function(require,module,exports){
+},{"../common/Utils":5}],9:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 var Constants = require("../common/Constants");
@@ -750,7 +757,7 @@ class NetPlayer extends Entity {
 
 module.exports = NetPlayer;
 
-},{"../../Assets":1,"../common/Constants":3,"./BufferMapBlock":5,"./Entity":6}],9:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":3,"./BufferMapBlock":6,"./Entity":7}],10:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -786,7 +793,7 @@ class PlateFrame{
 
 module.exports = PlateFrame;
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var Constants = require("../common/Constants");
 var LMath = require("../common/Math/LMath");
 
@@ -1024,11 +1031,6 @@ class World {
 				var slerpRotation = new THREE.Quaternion();
 				THREE.Quaternion.slerp(lastRotation, nextRotation, slerpRotation, timePercent);
 				var pRot = new THREE.Euler().setFromQuaternion(slerpRotation, "YXZ");
-				/*
-				var pRotX = buffer[last].state.rot_x; //TODO use slerp for rotations
-				var pRotY = buffer[last].state.rot_y; //TODO use slerp for rotations
-				*/
-
 				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRot.x, pRot.y);
 			}
 		});
@@ -1050,4 +1052,4 @@ class World {
 
 module.exports = World;
 
-},{"../common/Constants":3,"../common/Math/LMath":4,"./BufferMapBlock":5,"./Entity":6,"./FPSController":7,"./NetPlayer":8}]},{},[2]);
+},{"../common/Constants":3,"../common/Math/LMath":4,"./BufferMapBlock":6,"./Entity":7,"./FPSController":8,"./NetPlayer":9}]},{},[2]);
