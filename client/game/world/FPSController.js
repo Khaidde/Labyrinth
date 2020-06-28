@@ -40,7 +40,6 @@ class FPSController {
 		this.enabled = true;
 
 		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
-
 		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
 		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
 		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
@@ -52,13 +51,14 @@ class FPSController {
 		};
 	}
 	initPose(x, y, z, rotX, rotY) {
-		this.camera.position.x = x;
-		this.camera.position.y = y;
-		this.camera.position.z = z;
+		this.position = new THREE.Vector3(x, y, z);
+		this.camera.position.set(x, y, z);
 
 		this.euler.x = rotX;
 		this.euler.y = rotY;
 		this.camera.quaternion.setFromEuler(this.euler);
+
+		this.onPoseChange(this.position, this.euler);
 	}
 	addPointLockListener(callback) {
 		this.lockCallback = callback;
@@ -88,7 +88,7 @@ class FPSController {
 
 		this.camera.quaternion.setFromEuler(this.euler);
 
-		this.onPoseChange(this.camera.position, this.euler);
+		this.isRotationChanged = true;
 	}
 	onKeyDown(event) {
 		if (!this.enabled) return;
@@ -121,22 +121,18 @@ class FPSController {
 	moveCamForward(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.vec.crossVectors(this.camera.up, this.vec);
-		this.camera.position.addScaledVector(this.vec, distance);
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.addScaledVector(this.vec, distance);
 	}
 	moveCamRight(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
-		this.camera.position.addScaledVector(this.vec, distance);
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.addScaledVector(this.vec, distance);
 	}
 	moveCamUp(distance) {
-		this.camera.position.y += distance;
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.y += distance;
 	}
 	update(delta) {
+		var previousPosition = this.position.clone();
+
 		const diagonalSpeedAdjustment = 0.7021;
 		var forwardBackMovement = (this.moveForward && !this.moveBackward) || (this.moveBackward && !this.moveForward);
 		var sideMovement = (this.moveLeft && !this.moveRight) || (this.moveRight && !this.moveLeft);
@@ -177,6 +173,13 @@ class FPSController {
 
 		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
+
+		var isPositionChanged = !previousPosition.equals(this.position);
+		if(isPositionChanged || this.isRotationChanged) {
+			this.onPoseChange(this.position, this.euler);
+			if (isPositionChanged) this.camera.position.copy(this.position);
+			if (this.isRotationChanged) this.isRotationChanged = false;
+		}
 	}
 	lock() {
 		this.domElement.requestPointerLock();

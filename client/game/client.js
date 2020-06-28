@@ -16,8 +16,6 @@ const main = {
 
 		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
 			main.world = new World(socketID, socket, worldInfo);
-			//main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
-			//main.world.initPlayers(worldInfo.name, worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
 			main.world.controller.addPointUnlockListener(function() {
 				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -141,12 +139,22 @@ const main = {
 		}
 	},
 	updateSize: function() {
+		var prevW = screenW;
+		var prevH = screenH;
 		screenW = window.innerWidth ||
 	   	document.documentElement.clientWidth ||
 	    	document.body.clientWidth;
 	  	screenH = window.innerHeight ||
 	    	document.documentElement.clientHeight ||
 	    	document.body.clientHeight;
+		if (prevW != screenW || prevH != screenH) {
+			if (main.world != undefined) {
+				main.world.renderer.setSize(screenW, screenH, false);
+				main.world.camera.aspect = screenW / screenH;
+  				main.world.camera.updateProjectionMatrix();
+				main.world.domElement = main.world.renderer.domElement;
+			}
+		}
 	}
 }
 

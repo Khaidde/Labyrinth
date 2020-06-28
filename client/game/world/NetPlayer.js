@@ -114,6 +114,7 @@ class NetPlayer extends Entity {
 		this.position.set(x, y, z);
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
+		this.model.quaternion.setFromEuler(new THREE.Euler(0, this.rot_y, 0, 'YXZ'));
 	}
 	updatePlayerName() {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";

@@ -99,10 +99,10 @@ class World {
 		this.controller = new FPSController(this.camera, this.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
-		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 		this.controller.addPoseChangeListener((pos, rot) => {
 			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
 		});
+		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
@@ -223,9 +223,19 @@ class World {
 				var px = LMath.lerp(buffer[last].state.x, buffer[next].state.x, timePercent);
 				var py = LMath.lerp(buffer[last].state.y, buffer[next].state.y, timePercent);
 				var pz = LMath.lerp(buffer[last].state.z, buffer[next].state.z, timePercent);
-				var pRotX = buffer[last].state.rot_x; //TODO use slerp for rotations
-				var pRotY = buffer[last].state.rot_y;; //TODO use slerp for rotations
-				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRotX, pRotY);
+
+				var lastRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+					buffer[last].state.rot_x,
+					buffer[last].state.rot_y,
+					0, "YXZ"));
+				var nextRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+					buffer[next].state.rot_x,
+					buffer[next].state.rot_y,
+					0, "YXZ"));
+				var slerpRotation = new THREE.Quaternion();
+				THREE.Quaternion.slerp(lastRotation, nextRotation, slerpRotation, timePercent);
+				var pRot = new THREE.Euler().setFromQuaternion(slerpRotation, "YXZ");
+				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRot.x, pRot.y);
 			}
 		});
 	}

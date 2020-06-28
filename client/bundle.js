@@ -103,8 +103,6 @@ const main = {
 
 		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
 			main.world = new World(socketID, socket, worldInfo);
-			//main.world.initMap(worldInfo.map, worldInfo.width, worldInfo.height);
-			//main.world.initPlayers(worldInfo.name, worldInfo.spawnX, worldInfo.spawnY, worldInfo.spawnZ);
 			main.world.controller.addPointUnlockListener(function() {
 				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -228,12 +226,22 @@ const main = {
 		}
 	},
 	updateSize: function() {
+		var prevW = screenW;
+		var prevH = screenH;
 		screenW = window.innerWidth ||
 	   	document.documentElement.clientWidth ||
 	    	document.body.clientWidth;
 	  	screenH = window.innerHeight ||
 	    	document.documentElement.clientHeight ||
 	    	document.body.clientHeight;
+		if (prevW != screenW || prevH != screenH) {
+			if (main.world != undefined) {
+				main.world.renderer.setSize(screenW, screenH, false);
+				main.world.camera.aspect = screenW / screenH;
+  				main.world.camera.updateProjectionMatrix();
+				main.world.domElement = main.world.renderer.domElement;
+			}
+		}
 	}
 }
 
@@ -463,7 +471,6 @@ class FPSController {
 		this.enabled = true;
 
 		document.addEventListener("pointerlockchange", bind(this, this.onPointerlockChange), false);
-
 		document.addEventListener('mousemove', bind(this, this.onMouseMove), false);
 		document.addEventListener('keydown', bind(this, this.onKeyDown), false);
 		document.addEventListener('keyup', bind(this, this.onKeyUp), false);
@@ -475,13 +482,14 @@ class FPSController {
 		};
 	}
 	initPose(x, y, z, rotX, rotY) {
-		this.camera.position.x = x;
-		this.camera.position.y = y;
-		this.camera.position.z = z;
+		this.position = new THREE.Vector3(x, y, z);
+		this.camera.position.set(x, y, z);
 
 		this.euler.x = rotX;
 		this.euler.y = rotY;
 		this.camera.quaternion.setFromEuler(this.euler);
+
+		this.onPoseChange(this.position, this.euler);
 	}
 	addPointLockListener(callback) {
 		this.lockCallback = callback;
@@ -511,7 +519,7 @@ class FPSController {
 
 		this.camera.quaternion.setFromEuler(this.euler);
 
-		this.onPoseChange(this.camera.position, this.euler);
+		this.isRotationChanged = true;
 	}
 	onKeyDown(event) {
 		if (!this.enabled) return;
@@ -544,22 +552,18 @@ class FPSController {
 	moveCamForward(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.vec.crossVectors(this.camera.up, this.vec);
-		this.camera.position.addScaledVector(this.vec, distance);
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.addScaledVector(this.vec, distance);
 	}
 	moveCamRight(distance) {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
-		this.camera.position.addScaledVector(this.vec, distance);
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.addScaledVector(this.vec, distance);
 	}
 	moveCamUp(distance) {
-		this.camera.position.y += distance;
-
-		this.onPoseChange(this.camera.position, this.euler);
+		this.position.y += distance;
 	}
 	update(delta) {
+		var previousPosition = this.position.clone();
+
 		const diagonalSpeedAdjustment = 0.7021;
 		var forwardBackMovement = (this.moveForward && !this.moveBackward) || (this.moveBackward && !this.moveForward);
 		var sideMovement = (this.moveLeft && !this.moveRight) || (this.moveRight && !this.moveLeft);
@@ -600,6 +604,13 @@ class FPSController {
 
 		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
+
+		var isPositionChanged = !previousPosition.equals(this.position);
+		if(isPositionChanged || this.isRotationChanged) {
+			this.onPoseChange(this.position, this.euler);
+			if (isPositionChanged) this.camera.position.copy(this.position);
+			if (this.isRotationChanged) this.isRotationChanged = false;
+		}
 	}
 	lock() {
 		this.domElement.requestPointerLock();
@@ -728,6 +739,7 @@ class NetPlayer extends Entity {
 		this.position.set(x, y, z);
 		this.rot_x = rot_x;
 		this.rot_y = rot_y;
+		this.model.quaternion.setFromEuler(new THREE.Euler(0, this.rot_y, 0, 'YXZ'));
 	}
 	updatePlayerName() {
 		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
@@ -876,10 +888,10 @@ class World {
 		this.controller = new FPSController(this.camera, this.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
-		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 		this.controller.addPoseChangeListener((pos, rot) => {
 			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
 		});
+		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
@@ -1000,9 +1012,24 @@ class World {
 				var px = LMath.lerp(buffer[last].state.x, buffer[next].state.x, timePercent);
 				var py = LMath.lerp(buffer[last].state.y, buffer[next].state.y, timePercent);
 				var pz = LMath.lerp(buffer[last].state.z, buffer[next].state.z, timePercent);
+
+				var lastRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+					buffer[last].state.rot_x,
+					buffer[last].state.rot_y,
+					0, "YXZ"));
+				var nextRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+					buffer[next].state.rot_x,
+					buffer[next].state.rot_y,
+					0, "YXZ"));
+				var slerpRotation = new THREE.Quaternion();
+				THREE.Quaternion.slerp(lastRotation, nextRotation, slerpRotation, timePercent);
+				var pRot = new THREE.Euler().setFromQuaternion(slerpRotation, "YXZ");
+				/*
 				var pRotX = buffer[last].state.rot_x; //TODO use slerp for rotations
-				var pRotY = buffer[last].state.rot_y;; //TODO use slerp for rotations
-				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRotX, pRotY);
+				var pRotY = buffer[last].state.rot_y; //TODO use slerp for rotations
+				*/
+
+				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRot.x, pRot.y);
 			}
 		});
 	}
