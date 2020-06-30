@@ -111,6 +111,10 @@ const main = {
 			});
 			main.world.controller.lock();
 		});
+
+		socket.on(Constants.NET_SERVER_TO_CLIENT_FORCE_DISCONNECT, function() {
+			main.stopGame();
+		});
 	},
 	initMenu: function() {
 		var blocker = document.getElementById("blocker");
@@ -181,14 +185,7 @@ const main = {
 		});
 
 		leaveBtn.addEventListener("click", function() {
-			pauseMenu.style.opacity = 0;
-			main.pauseMenuOpacity = 0;
-			pauseMenu.style.pointerEvents = "none";
-
-			document.getElementById("mainMenu").style.opacity = 1;
-			main.world.dispose();
-			main.world = null;
-			socket.emit(Constants.NET_SOCKET_PLAYER_LEAVE_ROOM);
+			main.stopGame();
 		});
 
 		mouseSensitivityRange.oninput = function() {
@@ -207,6 +204,19 @@ const main = {
 			optionsComponents.style.opacity = 0;
 			optionsComponents.style.pointerEvents = "none";
 		});
+	},
+	stopGame: function() {
+		if (main.world != undefined) {
+			blocker.style.opacity = 1;
+			pauseMenu.style.opacity = 0;
+			main.pauseMenuOpacity = 0;
+			pauseMenu.style.pointerEvents = "none";
+
+			document.getElementById("mainMenu").style.opacity = 1;
+			main.world.dispose();
+			main.world = null;
+			socket.emit(Constants.NET_SOCKET_PLAYER_LEAVE_ROOM);
+		}
 	},
 	update: function(delta) {
 		this.updateSize();
@@ -278,6 +288,7 @@ var Constants = {
 	//Networking events
 	NET_SOCKET_PLAYER_LOGIN: "socket_player_login",
 	NET_SOCKET_PLAYER_LEAVE_ROOM: "socket_player_leave",
+	NET_SERVER_TO_CLIENT_FORCE_DISCONNECT: "force_disconnect",
 	NET_INIT_WORLD: "init_map",
 	NET_WORLD_STATE_UPDATE: "state_update",
 	NET_CLIENT_POSE_CHANGE: "client_pose_change",

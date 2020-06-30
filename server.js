@@ -60,7 +60,11 @@ io.on("connection", function(socket) {
 	socket.on(Constants.NET_CLIENT_POSE_CHANGE, function(x, y, z, rot_x, rot_y) {
 		var roomID = clientToRoomMap.get(socket.id);
 		var room = rooms.get(roomID);
-		room.updatePlayerPose(x, y, z, rot_x, rot_y, socket.id);
+		if (room == undefined) {
+			socket.emit(Constants.NET_SERVER_TO_CLIENT_FORCE_DISCONNECT);
+		} else {
+			room.updatePlayerPose(x, y, z, rot_x, rot_y, socket.id);
+		}
 	});
 	socket.on("disconnect", function() {
 		if (clientToRoomMap.has(socket.id)) removeSocket(socket);
