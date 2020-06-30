@@ -67,7 +67,7 @@ class BufferMapBlock {
 			plateNum = this.world.plateNum;
 			general_term = [0+4*(plateNum-1), 1+4*(plateNum-1), 2+4*(plateNum-1), 2+4*(plateNum-1), 1+4*(plateNum-1), 3+4*(plateNum-1)];
 			this.world.indices = this.world.indices.concat(general_term);
-			this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
+			//this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
 			for (const vertex of west.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);

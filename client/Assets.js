@@ -21,7 +21,7 @@ const Assets = {
 		Assets.loadFont();
 
 		//Load models:
-		Assets.loadModel("Player", "client/models/Player/Player.gltf", (object) => {console.log(object)} ); //TODO delete callback, used for testing purposes
+		Assets.loadModel("Player", "client/models/Player/Player.gltf");
 	},
 	loadFont() {
 		var textLoad = new THREE.FontLoader();
@@ -33,7 +33,7 @@ const Assets = {
 		var loader = new THREE.GLTFLoader();
 		loader.load(path, (object) => {
 			Assets.modelAssets.set(name, object);
-			callback(object);
+			if (callback != undefined) callback(object);
     	});
 	},
 	getGLTFModel(name) {

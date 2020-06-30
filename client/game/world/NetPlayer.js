@@ -12,6 +12,13 @@ class NetPlayer extends Entity {
 		if (this.world.clientSocketID != this.socketID) {
 			//Init Model Mesh
 			this.withModel("Player");
+			var modelMat = new THREE.MeshPhongMaterial({color: 0xffff00, side: THREE.FrontSide});
+			this.model.children.forEach(child => {
+				if (child.type == "SkinnedMesh") {
+					child.material.color = new THREE.Color(0xff0000);
+					child.material.metalness = 0.1;
+				}
+			});
 
 			//Init animations
 			this.mixer = new THREE.AnimationMixer(this.model);

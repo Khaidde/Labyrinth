@@ -22,7 +22,7 @@ const Assets = {
 		Assets.loadFont();
 
 		//Load models:
-		Assets.loadModel("Player", "client/models/Player/Player.gltf", (object) => {console.log(object)} ); //TODO delete callback, used for testing purposes
+		Assets.loadModel("Player", "client/models/Player/Player.gltf");
 	},
 	loadFont() {
 		var textLoad = new THREE.FontLoader();
@@ -34,7 +34,7 @@ const Assets = {
 		var loader = new THREE.GLTFLoader();
 		loader.load(path, (object) => {
 			Assets.modelAssets.set(name, object);
-			callback(object);
+			if (callback != undefined) callback(object);
     	});
 	},
 	getGLTFModel(name) {
@@ -379,7 +379,7 @@ class BufferMapBlock {
 			plateNum = this.world.plateNum;
 			general_term = [0+4*(plateNum-1), 1+4*(plateNum-1), 2+4*(plateNum-1), 2+4*(plateNum-1), 1+4*(plateNum-1), 3+4*(plateNum-1)];
 			this.world.indices = this.world.indices.concat(general_term);
-			this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
+			//this.world.lightUp(this.centerX-length/2+length/40, this.centerY+4/5*this.west, this.centerZ);
 			for (const vertex of west.points) {
 				this.world.positions.push(...vertex.pos);
 				this.world.normals.push(...vertex.norm);
@@ -644,6 +644,13 @@ class NetPlayer extends Entity {
 		if (this.world.clientSocketID != this.socketID) {
 			//Init Model Mesh
 			this.withModel("Player");
+			var modelMat = new THREE.MeshPhongMaterial({color: 0xffff00, side: THREE.FrontSide});
+			this.model.children.forEach(child => {
+				if (child.type == "SkinnedMesh") {
+					child.material.color = new THREE.Color(0xff0000);
+					child.material.metalness = 0.1;
+				}
+			});
 
 			//Init animations
 			this.mixer = new THREE.AnimationMixer(this.model);
@@ -936,6 +943,11 @@ class World {
 		//Ambient lighting
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
 		this.scene.add( ambient_light );
+
+		//Directional lighting
+		var directional_light = new THREE.DirectionalLight( 0xffffff, .7 ); // soft white light
+		directional_light.position.set(1, 1, 0);
+		this.scene.add( directional_light );
 
 		this.testSphere();
 	}

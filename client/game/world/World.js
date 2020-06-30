@@ -141,6 +141,11 @@ class World {
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
 		this.scene.add( ambient_light );
 
+		//Directional lighting
+		var directional_light = new THREE.DirectionalLight( 0xffffff, .7 ); // soft white light
+		directional_light.position.set(1, 1, 0);
+		this.scene.add( directional_light );
+
 		this.testSphere();
 	}
 	interpretMap(map, width, height) {
