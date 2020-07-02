@@ -1,4 +1,59 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+class ModelInfo {
+	constructor(name, path, callback) {
+		var loader = new THREE.GLTFLoader();
+		loader.load(path, (object) => {
+			this.gltfObject = object;
+			this.mesh = getMeshFromGLTF(object);
+			if (callback != undefined) callback(object);
+    	});
+	}
+	createAnimationMixer() {
+		return new THREE.AnimationMixer(this.mesh);
+	}
+	createModel() {
+		return clone(this.mesh);
+	}
+	createClone() {
+		var modelClone = {
+			gltfObject: this.gltfObject,
+			mesh: clone(this.mesh),
+			animations: new Map(),
+			compileClips: function() {
+				this.gltfObject.animations.forEach(animation => {
+					var action = modelClone.mixer.clipAction(animation);
+					modelClone.animations.set(animation.name, action);
+				});
+			},
+			setOneShot: function(animationName) {
+				var action = modelClone.animations.get(animationName);
+				action.clampWhenFinished = true;
+				action.loop = THREE.LoopOnce;
+			},
+			spliceBones: function(animationName, boneNames) {
+				var clip = this.gltfObject.animations.find((item) => {
+					return item.name == animationName;
+				});
+				for (var i = 0; i < clip.tracks.length; i++) {
+					var track = clip.tracks[i];
+					var possibleBoneName = track.name.split('.')[0];
+					boneNames.forEach((name) => {
+						if (possibleBoneName === name) {
+							clip.tracks.splice(i, 3)
+							i -= 3;
+						}
+					})
+				}
+				modelClone.mixer.uncacheAction(modelClone.animations.get(animationName));
+				modelClone.mixer.clipAction(clip);
+			}
+		}
+		modelClone.mixer = new THREE.AnimationMixer(modelClone.mesh);
+
+		return modelClone;
+	}
+}
+
 const Assets = {
 	loadingPercent: 0,
 	modelAssets: new Map(),
@@ -22,7 +77,34 @@ const Assets = {
 		Assets.loadFont();
 
 		//Load models:
-		Assets.loadModel("Player", "client/models/Player/Player.gltf");
+		Assets.loadModel("Player", "client/models/Player/Player.gltf", object => {
+			getMeshFromGLTF(object).children.forEach(child => {
+				if (child.isMesh) {
+					child.material.color = new THREE.Color(0xff0000);
+					child.material.metalness = 0.1;
+					child.material.frustumCulled = false;
+					child.frustumCulled = false;
+				}
+			});
+		});
+
+		Assets.loadModel("Pistol", "client/models/Pistol/Pistol.gltf", object => {
+			getMeshFromGLTF(object).traverse(o => {
+				if (o.isMesh) {
+					o.material.color = new THREE.Color(0x544c4a);
+					o.scale.set(2,2,2);
+				}
+			})
+		});
+
+		Assets.loadModel("GenericItem", "client/models/Pistol/Pistol.gltf", object => {
+			getMeshFromGLTF(object).traverse(o => {
+				if (o.isMesh) {
+					o.material.color = new THREE.Color(0xffffff);
+					o.scale.set(2,2,2);
+				}
+			})
+		});
 	},
 	loadFont() {
 		var textLoad = new THREE.FontLoader();
@@ -31,18 +113,15 @@ const Assets = {
    	});
 	},
 	loadModel(name, path, callback) {
-		var loader = new THREE.GLTFLoader();
-		loader.load(path, (object) => {
-			Assets.modelAssets.set(name, object);
-			if (callback != undefined) callback(object);
-    	});
+		Assets.modelAssets.set(name, new ModelInfo(name, path, callback));
 	},
-	getGLTFModel(name) {
+	get(name) {
 		return Assets.modelAssets.get(name);
-	},
-	getModelClone(name) {
-		return clone(Assets.modelAssets.get(name).scene.children[0]);
 	}
+}
+
+function getMeshFromGLTF(gltfObj) {
+	return gltfObj.scene.children[0];
 }
 
 function clone(source) { //Copied from Three.js SkeletonUtils
@@ -279,7 +358,10 @@ window.onload =
 var Constants = {
 	FPS: 60,
 	SERVER_SEND_RATE: 20,
+
+	//World measurement constants
 	MAP_BLOCK_LENGTH: 5,
+	PLAYER_HEIGHT_OFFSET: 1.8,
 
 	//Debug flags
 	DEBUG_SHOW_ENTITY_BOUNDING_BOXES: true,
@@ -410,14 +492,28 @@ var Assets = require("../../Assets");
 class Entity {
 	constructor(x, y, z, world) {
 		this.position = new THREE.Vector3(x, y, z);
+		this.rotation = new THREE.Euler(0, 0, 0, "YXZ");
 		this.world = world;
 
 		this.positionBuffer = [];
 	}
+	withRotation(rot_x, rot_y, rot_z) {
+		this.rotation.set(rot_x, rot_y, rot_z);
+		return this;
+	}
 	withModel(assetName) {
-		this.model = Assets.getModelClone(assetName);
+		this.modelInfo = Assets.get(assetName).createClone();
+		this.model = this.modelInfo.mesh;
+		this.mixer = this.modelInfo.mixer;
+		this.animations = this.modelInfo.animations;
 		this.model.position.set(this.position.x, this.position.y, this.position.z);
 		this.world.scene.add(this.model);
+		this.modelOffset = new THREE.Vector3();
+		return this;
+	}
+	withModelOffset(offset) {
+		this.modelOffset = offset;
+		return this;
 	}
 	withBoundingBox(boundingGeometry, posOffset = new THREE.Vector3(0, 0, 0)) {
 		this.boundingGeometry = boundingGeometry;
@@ -429,6 +525,7 @@ class Entity {
 			this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
 			this.world.scene.add( this.boundingBoxDebugMesh );
 		}
+		return this;
 	}
 	dispose() {
 		if (this.model != undefined) this.world.scene.remove(this.model);
@@ -441,7 +538,10 @@ class Entity {
 		})
 	}
 	update(delta) {
-		if (this.model != undefined) this.model.position.set(this.position.x, this.position.y, this.position.z);
+		if (this.model != undefined) {
+			this.model.position.addVectors(this.position, this.modelOffset);
+			this.model.rotation.copy(this.rotation);
+		}
 	}
 	updateBoundingBox() {
 		if (this.boundingBoxDebugMesh != undefined) this.boundingBoxDebugMesh.position.set(this.position.x + this.boundingPosOffset.x, this.position.y + this.boundingPosOffset.y, this.position.z + this.boundingPosOffset.z);
@@ -458,7 +558,7 @@ class FPSController {
 	constructor(camera, domElement) {
 		this.camera = camera;
 
-		this.speed = 5;
+		this.speed = 1;
 		this.turnSpeed = 0.001;
 
 		this.moveForward = false;
@@ -623,10 +723,10 @@ class FPSController {
 		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
 
-		var isPositionChanged = !previousPosition.equals(this.position);
-		if(isPositionChanged || this.isRotationChanged) {
+		this.isMoving = !previousPosition.equals(this.position);
+		if(this.isMoving || this.isRotationChanged) {
 			this.onPoseChange(this.position, this.euler);
-			if (isPositionChanged) this.camera.position.copy(this.position);
+			//if (isPositionChanged) this.camera.position.copy(this.position);
 			if (this.isRotationChanged) this.isRotationChanged = false;
 		}
 	}
@@ -643,41 +743,79 @@ module.exports = FPSController;
 },{"../common/Utils":5}],9:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
+
 var Constants = require("../common/Constants");
 var Assets = require("../../Assets");
 
 class NetPlayer extends Entity {
 	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
 		super(x, y, z, world);
+		this.withRotation(rot_x, rot_y, 0);
 		this.name = name;
 		this.socketID = socketID;
+		this.isClientPlayer = (this.world.clientSocketID == this.socketID);
 
-		if (this.world.clientSocketID != this.socketID) {
-			//Init Model Mesh
-			this.withModel("Player");
-			var modelMat = new THREE.MeshPhongMaterial({color: 0xffff00, side: THREE.FrontSide});
-			this.model.children.forEach(child => {
-				if (child.type == "SkinnedMesh") {
-					child.material.color = new THREE.Color(0xff0000);
-					child.material.metalness = 0.1;
+		//TODO assign these to unqiue item entities
+		this.leftHandItem = undefined;
+		this.rightHandItem = undefined;
+
+		this.withModel("Player");
+		this.withModelOffset(new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET - 1.8, 0));
+		this.modelInfo.spliceBones("Idle", ["Head", "Neck", "ElbowL", "ElbowR", "HandL", "HandR"]);
+		this.modelInfo.spliceBones("Walk", ["ElbowL", "ElbowR", "HandL", "HandR"]);
+		this.modelInfo.compileClips();
+		this.model.traverse(o => {
+			if (o.isBone) {
+				switch (o.name) {
+				case "Head":
+					this.head = o;
+					break;
+				case "ShoulderL":
+					this.shoulderL = o;
+					break;
+				case "ShoulderR":
+					this.shoulderR = o;
+					break;
+				case "HandL":
+					this.handL = o;
+					break;
+				case "HandR":
+					this.handR = o;
+					break;
+				case "ElbowL":
+					this.elbowL = o;
+					break;
+				case "ElbowR":
+					this.elbowR = o;
+					break;
 				}
-			});
+			}
+			if (o.isMesh && this.isClientPlayer) {
+				var invisibleMaterial = o.material.clone();
+				invisibleMaterial.visible = false;
+				o.material = invisibleMaterial;
+			}
+		});
 
-			//Init animations
-			this.mixer = new THREE.AnimationMixer(this.model);
-			this.animations = new Map();
-			var self = this;
-			Assets.getGLTFModel("Player").animations.forEach((animation) => {
-				var action = self.mixer.clipAction(animation);
-				if (animation.name == "Jump") {
-					action.clampWhenFinished = true;
-        			action.loop = THREE.LoopOnce;
-				}
-				self.animations.set(animation.name, action);
-			});
-			this.activeAction = this.animations.get("Idle");
-			this.activeAction.play();
+		this.activeAction = this.animations.get("Idle");
+		this.activeAction.play();
 
+		this.pistolModelL = Assets.get("Pistol").createClone().mesh;
+		this.pistolModelL.position.set(0, 1.2, 0);
+		this.handL.add(this.pistolModelL);
+
+		this.pistolModelR = Assets.get("Pistol").createClone().mesh;
+		this.pistolModelR.position.set(0, 1.2, 0);
+		this.handR.add(this.pistolModelR);
+
+		this.handItemRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, Math.PI / 2));
+		this.pistolModelL.quaternion.multiply(this.handItemRotation);
+		this.pistolModelR.quaternion.multiply(this.handItemRotation);
+
+		//Init collision box
+		this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
+
+		if (!this.isClientPlayer) {
 			/*
 			document.addEventListener('keydown', (event) => {
 				if (event.keyCode == 32) {
@@ -687,17 +825,6 @@ class NetPlayer extends Entity {
 						self.fadeToActionAnim("Idle", 0.2);
 					}
 					self.mixer.addEventListener("finished", restore);
-				} else if (event.keyCode == 87) {
-					if (this.activeAction !== this.animations.get("Walk")) {
-						self.fadeToActionAnim("Walk", 0.2);
-					}
-				}
-			}, false);
-			document.addEventListener('keyup', (event) => {
-				if (event.keyCode == 87) {
-					if (this.activeAction !== this.animations.get("Idle")) {
-						self.fadeToActionAnim("Idle", 0.2);
-					}
 				}
 			}, false);*/
 
@@ -716,60 +843,82 @@ class NetPlayer extends Entity {
 			this.usernameMesh.lookAt(this.world.camera.position);
          this.world.scene.add(this.usernameMesh);
 
-			//Init collision box
-			this.withBoundingBox(new THREE.BoxGeometry(2, 2, 2), new THREE.Vector3(0, 0, -0.2));
 		}
-	}
-	fadeToActionAnim(name, duration) {
-		var previousAction = this.activeAction;
-		this.activeAction = this.animations.get(name);
-		this.currentActionName = name;
-
-		if (previousAction !== this.activeAction) {
-			previousAction.fadeOut(duration);
-		}
-
-		this.activeAction
-			.reset()
-			.setEffectiveTimeScale(1)
-			.setEffectiveWeight(1)
-			.fadeIn(duration)
-			.play();
 	}
 	dispose() {
 		super.dispose();
-		if (this.world.clientSocketID != this.socketID) {
+		if (!this.isClientPlayer) {
 			this.world.scene.remove(this.usernameMesh);
 		}
 	}
 	update(delta) {
 		super.update(delta);
-		if (this.world.clientSocketID != this.socketID) {
-			this.updatePlayerName();
-			if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) this.updateBoundingBox();
-			if (this.mixer != undefined) this.mixer.update(delta * 0.001);
+		if (!this.isClientPlayer) {
+			this.usernameMesh.position.addVectors(this.position, new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET * 5/3, 0));
+			this.usernameMesh.lookAt(this.world.camera.position);
 		}
+		if (Constants.DEBUG_SHOW_ENTITY_BOUNDING_BOXES) this.updateBoundingBox();
+
+		this.mixer.update(delta * 0.001);
+
+		this.elbowL.rotation.x = 0;
+		this.elbowL.rotation.y = 0;
+		this.elbowL.rotation.z = Math.PI / 8;
+		this.shoulderL.rotation.x = Math.PI;
+		this.shoulderL.rotation.y = 0;
+		this.shoulderL.rotation.z = this.targetingRotX + Math.PI * 1/3;
+
+		this.elbowR.rotation.x = 0;
+		this.elbowR.rotation.y = 0;
+		this.elbowR.rotation.z = Math.PI / 8;
+		this.shoulderR.rotation.x = Math.PI;
+		this.shoulderR.rotation.y = 0;
+		this.shoulderR.rotation.z = this.targetingRotX + Math.PI * 1/3;
+
+		this.head.rotation.x = 0;
+		this.head.rotation.y = 0;
+		this.head.rotation.z = -this.targetingRotX;
+	}
+	setPoseFromController(controller) {
+		if (!this.isClientPlayer) throw "function can't be used by non-client players";
+		this.predictAnimation(controller.camera.position.x, controller.camera.position.y, controller.camera.position.z, controller.euler.y);
+
+		this.position.addVectors(controller.position, new THREE.Vector3(0, -Constants.PLAYER_HEIGHT_OFFSET, 0));
+		this.rotation.set(0, controller.euler.y, 0);
+		this.targetingRotX = controller.euler.x;
+		this.targetingRotY = controller.euler.y;
 	}
 	setPlayerPose(x, y, z, rot_x, rot_y) {
-		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
-		if (this.position.x != x || this.position.y != y || this.position.z != z) {
-			if (this.currentActionName != "Walk") {
-				this.fadeToActionAnim("Walk", 0.2);
-			}
-		} else {
-			if (this.currentActionName != "Idle") {
-				this.fadeToActionAnim("Idle", 0.2);
-			}
-		}
+		if (this.isClientPlayer) throw "function can't be used by client player";
+		this.predictAnimation(x, y, z, rot_y);
 		this.position.set(x, y, z);
-		this.rot_x = rot_x;
-		this.rot_y = rot_y;
-		this.model.quaternion.setFromEuler(new THREE.Euler(0, this.rot_y, 0, 'YXZ'));
+		this.targetingRotX = rot_x;
+		this.targetingRotY = rot_y;
+		this.rotation.set(0, rot_y, 0)
 	}
-	updatePlayerName() {
-		if (this.world.clientSocketID == this.socketID) throw "function can't be used by client player";
-		this.usernameMesh.position.set(this.position.x, this.position.y + Constants.MAP_BLOCK_LENGTH / 2, this.position.z);
-		this.usernameMesh.lookAt(this.world.camera.position);
+	setActionAnim(name, duration, timeScale=1) {
+		if (this.currentActionName == name) {
+			if (this.activeAction.getEffectiveTimeScale() != timeScale) {
+				this.activeAction.setEffectiveTimeScale(timeScale);
+			}
+			return;
+		}
+		var previousAction = this.activeAction;
+		this.activeAction = this.animations.get(name);
+		this.currentActionName = name;
+
+		this.activeAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(timeScale).play();
+		this.activeAction.stopFading();
+		previousAction.crossFadeTo(this.activeAction, duration);
+	}
+	predictAnimation(x, y, z, rot_y) {
+		if (this.position.x != x || this.position.z != z) {
+			var timeScale = 1;
+			if (this.position.x > x) timeScale = -1;
+			this.setActionAnim("Walk", 0.2, timeScale);
+		} else {
+			this.setActionAnim("Idle", 0.2);
+		}
 	}
 }
 
@@ -906,17 +1055,17 @@ class World {
 			return player.socketID == self.clientSocketID;
 		});
 
-		const MOVEMENT_SPEED = 0.008;
+		const MOVEMENT_SPEED = 0.003;
 		const TURN_SPEED = 0.0004;
 
-		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
 		this.controller = new FPSController(this.camera, this.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
 		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
+			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y - Constants.PLAYER_HEIGHT_OFFSET, pos.z, rot.x, rot.y);
 		});
-		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+		this.controller.initPose(player.x, player.y + Constants.PLAYER_HEIGHT_OFFSET, player.z, player.rot_x, player.rot_y);
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
@@ -1018,8 +1167,9 @@ class World {
 	}
 	update(delta) {
 		this.controller.update(delta);
+		this.camera.position.copy(this.controller.position);
+		this.clientPlayer.setPoseFromController(this.controller);
 		this.netPlayers.forEach((nPlayer) => {
-			if (nPlayer.socketID == this.clientSocketID) return;
 			nPlayer.update(delta);
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();

@@ -23,7 +23,7 @@ class Room {
 			console.log(name + " has joined the room (" + this.roomID + ")");
 			let spawnX = Math.random() * this.width * Constants.MAP_BLOCK_LENGTH;
 			let spawnZ = Math.random() * this.height * Constants.MAP_BLOCK_LENGTH;
-			let spawnY = Constants.MAP_BLOCK_LENGTH;
+			let spawnY = 0;
 			let spawnRotX = 0;
 			let spawnRotY = 0;
 			var player = new Player(name, socketID, spawnX, spawnY, spawnZ, spawnRotX, spawnRotY);

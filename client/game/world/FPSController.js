@@ -5,7 +5,7 @@ class FPSController {
 	constructor(camera, domElement) {
 		this.camera = camera;
 
-		this.speed = 5;
+		this.speed = 1;
 		this.turnSpeed = 0.001;
 
 		this.moveForward = false;
@@ -170,10 +170,10 @@ class FPSController {
 		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
 
-		var isPositionChanged = !previousPosition.equals(this.position);
-		if(isPositionChanged || this.isRotationChanged) {
+		this.isMoving = !previousPosition.equals(this.position);
+		if(this.isMoving || this.isRotationChanged) {
 			this.onPoseChange(this.position, this.euler);
-			if (isPositionChanged) this.camera.position.copy(this.position);
+			//if (isPositionChanged) this.camera.position.copy(this.position);
 			if (this.isRotationChanged) this.isRotationChanged = false;
 		}
 	}

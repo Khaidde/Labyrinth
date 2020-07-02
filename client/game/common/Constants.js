@@ -1,7 +1,10 @@
 var Constants = {
 	FPS: 60,
 	SERVER_SEND_RATE: 20,
+
+	//World measurement constants
 	MAP_BLOCK_LENGTH: 5,
+	PLAYER_HEIGHT_OFFSET: 1.8,
 
 	//Debug flags
 	DEBUG_SHOW_ENTITY_BOUNDING_BOXES: true,

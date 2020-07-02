@@ -92,17 +92,17 @@ class World {
 			return player.socketID == self.clientSocketID;
 		});
 
-		const MOVEMENT_SPEED = 0.008;
+		const MOVEMENT_SPEED = 0.003;
 		const TURN_SPEED = 0.0004;
 
-		this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
 		this.controller = new FPSController(this.camera, this.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
 		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y, pos.z, rot.x, rot.y);
+			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y - Constants.PLAYER_HEIGHT_OFFSET, pos.z, rot.x, rot.y);
 		});
-		this.controller.initPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+		this.controller.initPose(player.x, player.y + Constants.PLAYER_HEIGHT_OFFSET, player.z, player.rot_x, player.rot_y);
 
 		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
 		this.addNetPlayer(this.clientPlayer);
@@ -204,8 +204,9 @@ class World {
 	}
 	update(delta) {
 		this.controller.update(delta);
+		this.camera.position.copy(this.controller.position);
+		this.clientPlayer.setPoseFromController(this.controller);
 		this.netPlayers.forEach((nPlayer) => {
-			if (nPlayer.socketID == this.clientSocketID) return;
 			nPlayer.update(delta);
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();
