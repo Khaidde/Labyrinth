@@ -1,0 +1,5 @@
+Notes for Calvin:
+- Remove player height offset from fps controller and move logic elsewhere?
+- Test if the Attach Controller works
+- FPS measurement isn't accurate? Do more testing to measure current FPS
+- Do research into alternative game loop designs

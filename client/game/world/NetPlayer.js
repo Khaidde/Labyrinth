@@ -2,12 +2,12 @@ var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 
 var Constants = require("../common/Constants");
+var EntityType = require("../common/EntityType");
 var Assets = require("../../Assets");
 
 class NetPlayer extends Entity {
-	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
-		super(x, y, z, world);
-		this.withRotation(rot_x, rot_y, 0);
+	constructor(id, world, socketID, name) {
+		super(id, EntityType.PLAYER, world);
 		this.name = name;
 		this.socketID = socketID;
 		this.isClientPlayer = (this.world.clientSocketID == this.socketID);
@@ -99,8 +99,10 @@ class NetPlayer extends Entity {
          this.usernameMesh.position.set(this.position.x, this.position.y + Constants.MAP_BLOCK_LENGTH / 2, this.position.z);
 			this.usernameMesh.lookAt(this.world.camera.position);
          this.world.scene.add(this.usernameMesh);
-
 		}
+	}
+	withController(controller) {
+		this.controller = controller
 	}
 	dispose() {
 		super.dispose();
@@ -110,6 +112,7 @@ class NetPlayer extends Entity {
 	}
 	update(delta) {
 		super.update(delta);
+
 		if (!this.isClientPlayer) {
 			this.usernameMesh.position.addVectors(this.position, new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET * 5/3, 0));
 			this.usernameMesh.lookAt(this.world.camera.position);
@@ -118,6 +121,7 @@ class NetPlayer extends Entity {
 
 		this.mixer.update(delta * 0.001);
 
+		//Hold out left-hand item
 		this.elbowL.rotation.x = 0;
 		this.elbowL.rotation.y = 0;
 		this.elbowL.rotation.z = Math.PI / 8;
@@ -125,6 +129,7 @@ class NetPlayer extends Entity {
 		this.shoulderL.rotation.y = 0;
 		this.shoulderL.rotation.z = this.targetingRotX + Math.PI * 1/3;
 
+		//Hold out right-hand item
 		this.elbowR.rotation.x = 0;
 		this.elbowR.rotation.y = 0;
 		this.elbowR.rotation.z = Math.PI / 8;
@@ -136,17 +141,7 @@ class NetPlayer extends Entity {
 		this.head.rotation.y = 0;
 		this.head.rotation.z = -this.targetingRotX;
 	}
-	setPoseFromController(controller) {
-		if (!this.isClientPlayer) throw "function can't be used by non-client players";
-		this.predictAnimation(controller.camera.position.x, controller.camera.position.y, controller.camera.position.z, controller.euler.y);
-
-		this.position.addVectors(controller.position, new THREE.Vector3(0, -Constants.PLAYER_HEIGHT_OFFSET, 0));
-		this.rotation.set(0, controller.euler.y, 0);
-		this.targetingRotX = controller.euler.x;
-		this.targetingRotY = controller.euler.y;
-	}
-	setPlayerPose(x, y, z, rot_x, rot_y) {
-		if (this.isClientPlayer) throw "function can't be used by client player";
+	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.predictAnimation(x, y, z, rot_y);
 		this.position.set(x, y, z);
 		this.targetingRotX = rot_x;

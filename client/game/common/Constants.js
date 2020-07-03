@@ -1,6 +1,9 @@
 var Constants = {
 	FPS: 60,
+	FPS_SMOOTHING_WEIGHT_RATIO: 0.9,
 	SERVER_SEND_RATE: 20,
+
+	ROTATION_ORDER: "YXZ",
 
 	//World measurement constants
 	MAP_BLOCK_LENGTH: 5,
