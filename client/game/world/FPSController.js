@@ -1,4 +1,5 @@
 var Utils = require("../common/Utils");
+var WorldConstants = require("../common/Constants");
 
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 class FPSController {
@@ -17,6 +18,16 @@ class FPSController {
 		this.moveDown = false;
 
 		this.sprinting = false;
+		this.jump = false;
+		this.jumpRate = WorldConstants.MAP_BLOCK_LENGTH/30;
+		this.fallInit = false;
+
+		this.maze = [];
+		this.mapWidth = 10;
+		this.mapLength = 10;
+		this.boundingX = WorldConstants.MAP_BLOCK_LENGTH/30;
+		this.boundingZ = WorldConstants.MAP_BLOCK_LENGTH/30;
+		this.boundingY = WorldConstants.PLAYER_HEIGHT_OFFSET;
 
 		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
 		this.PI_2 = Math.PI / 2;
@@ -123,8 +134,31 @@ class FPSController {
 		this.vec.setFromMatrixColumn(this.camera.matrix, 0);
 		this.position.addScaledVector(this.vec, distance);
 	}
-	moveCamUp(distance) {
-		this.position.y += distance;
+	gravity(alt, mapX, mapZ, dateTimeObj){
+      var buffer1 = 0.1;
+      if(alt - this.boundingY - buffer1 > this.getCellHeight(mapX,mapZ) && this.fallInit){
+					if(alt - this.boundingY - buffer1 - WorldConstants.GRAVITY*(dateTimeObj.getTime()-this.fallInit) < this.getCellHeight(mapX,mapZ))
+						return this.getCellHeight(mapX,mapZ)+this.boundingY;
+          // console.log((dateTimeObj.getTime()));
+          return alt-WorldConstants.GRAVITY*(dateTimeObj.getTime()-this.fallInit);
+      }
+      else if(alt - this.boundingY - buffer1 < this.getCellHeight(mapX,mapZ) && this.fallInit){
+          // console.log("error");
+          this.fallInit = false;
+          return this.getCellHeight(mapX,mapZ)+this.boundingY;
+      }
+      this.fallInit = false;
+      return alt;
+  }
+	getCellLoc(){
+		var adjustedX = this.position.x+WorldConstants.MAP_BLOCK_LENGTH/2;
+		var adjustedZ = this.position.z+WorldConstants.MAP_BLOCK_LENGTH/2;
+		adjustedX /= WorldConstants.MAP_BLOCK_LENGTH;
+		adjustedZ /= WorldConstants.MAP_BLOCK_LENGTH;
+		return [Math.floor(adjustedX), Math.floor(adjustedZ)];
+	}
+	getCellHeight(x, z){
+		return this.maze[x+z*this.mapWidth];
 	}
 	update(delta) {
 		var previousPosition = this.position.clone();
@@ -167,8 +201,25 @@ class FPSController {
 			}
 		}
 
-		if (this.moveUp && !this.moveDown) this.moveCamUp(adjustedSpeed);
-		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
+		if (this.moveUp)
+			this.jump = true;
+
+		var timer = new Date();
+		var mapX = this.getCellLoc()[0];
+		var mapZ = this.getCellLoc()[1];
+		if(this.position.y - this.boundingY > this.getCellHeight(mapX,mapZ) && !this.fallInit){
+				this.fallInit = timer.getTime();
+		}
+		if(this.jump){
+			this.position.y += this.jumpRate;
+			if(this.position.y != this.getCellHeight(mapX,mapZ)+this.boundingY)
+				this.position.y += this.jumpRate;
+		}
+		this.position.y = this.gravity(this.position.y, mapX, mapZ, timer);
+		if(this.position.y == this.boundingY+this.getCellHeight(this.getCellLoc()[0],this.getCellLoc()[1]))
+			this.jump = false;
+
+
 
 		this.isMoving = !previousPosition.equals(this.position);
 		if(this.isMoving || this.isRotationChanged) {

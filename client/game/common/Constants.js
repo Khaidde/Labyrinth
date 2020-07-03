@@ -5,6 +5,7 @@ var Constants = {
 	//World measurement constants
 	MAP_BLOCK_LENGTH: 5,
 	PLAYER_HEIGHT_OFFSET: 1.8,
+	GRAVITY: 0.001,
 
 	//Debug flags
 	DEBUG_SHOW_ENTITY_BOUNDING_BOXES: true,

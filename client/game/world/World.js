@@ -21,6 +21,11 @@ class World {
 		this.plateNum = 0;
 		this.indices = [];
 
+		//Initialize basic properties of map
+		this.map = worldInfo.map;
+		this.width = worldInfo.width;
+		this.height = worldInfo.height;
+
 		//Initialize the scene and renderer
 		this.scene = new THREE.Scene();
 
@@ -99,6 +104,10 @@ class World {
 		this.controller = new FPSController(this.camera, this.renderer.domElement);
 		this.controller.speed = MOVEMENT_SPEED;
 		this.controller.turnSpeed = TURN_SPEED;
+		this.controller.mapWidth = this.width;
+		this.controller.mapLength = this.height;
+		this.controller.maze = this.map;
+		
 		this.controller.addPoseChangeListener((pos, rot) => {
 			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y - Constants.PLAYER_HEIGHT_OFFSET, pos.z, rot.x, rot.y);
 		});
@@ -133,7 +142,7 @@ class World {
 		mapMesh.receiveShadow = true;
 		mapMesh.castShadow = false;
 		this.scene.add(mapMesh);
-		this.map = worldInfo.map;
+
 		this.interpretMap(worldInfo.map, worldInfo.width, worldInfo.height);
 		this.setUpMap();
 
