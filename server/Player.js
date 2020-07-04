@@ -1,16 +1,22 @@
-class Player {
-	constructor(name, socketID, x, y, z, rot_x, rot_y) {
+var ServerEntity = require("./ServerEntity");
+
+var EntityType = require("../client/game/common/EntityType");
+
+class Player extends ServerEntity {
+	constructor(name, socketID, room) {
+		super(EntityType.PLAYER, room);
 		this.name = name;
 		this.socketID = socketID;
-
-		this.updatePlayerPose(x, y, z, rot_x, rot_y);
 	}
-	updatePlayerPose(x, y, z, rot_x, rot_y) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
-		this.rot_x = rot_x;
-		this.rot_y = rot_y;
+	createState() {
+		return{
+			type: this.type,
+			id: this.id,
+			position: this.position,
+			rotation: this.rotation,
+			name: this.name,
+			socketID: this.socketID
+		};
 	}
 }
 

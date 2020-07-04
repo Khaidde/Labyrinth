@@ -1,14 +1,22 @@
 var Constants = require("../common/Constants");
+var EntityType = require("../common/EntityType");
+var Utils = require("../common/Utils");
 var LMath = require("../common/Math/LMath");
+
+var EntityManager = require("./EntityManager");
 
 var Entity = require("./Entity");
 var NetPlayer = require("./NetPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
-var FPSController = require("./FPSController");
+var FirstPersonController = require("./FirstPersonController");
 
 class World {
-	constructor (socketID, socket, worldInfo) {
+	constructor (socket, worldInfo) {
+		//Initialize networking
+		this.clientSocketID = socket.id;
+		this.socket = socket;
+
 		//Initialize the map mesh of points
 		this.bufferMapGeom = new THREE.BufferGeometry();
 		this.positions = [];
@@ -26,18 +34,17 @@ class World {
 
 		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
+		this.renderer.setClearColor(0x0a0806, 1);
+   	this.renderer.setPixelRatio(window.devicePixelRatio);
 
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
 
-		//Initialize networking
-		this.clientSocketID = socketID;
-		this.socket = socket;
+		//Initialize server listeners
 		this.initServerListeners();
 
 		//Initialize players
 		this.netPlayers = new Map();
-		var clientPlayer = worldInfo.clientPlayer;
 		this.initPlayer(worldInfo);
 
 		this.initMap(worldInfo);
@@ -46,67 +53,83 @@ class World {
 		this.bufferMapGeom.dispose();
 		this.controller.dispose();
 		this.scene.dispose();
-		this.domElement.parentElement.removeChild(this.domElement);
 		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
+
+		EntityManager.dispose();
+		this.domElement.parentElement.removeChild(this.domElement);
 	}
 	initServerListeners() {
-		var self = this;
-		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, function(worldInfo) {
-			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
+		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, Utils.bind(this, worldInfo => {
+			this.updateNetPlayers(worldInfo.entities, worldInfo.removedEntityIDs);
 			//Do the same for entities when they are included TODO
-		});
+		}));
 	}
-	updateNetPlayers(players, removePlayerIDs) {
-		players.forEach((player) => {
-			if (player.socketID == this.clientSocketID) return;
-			if (this.netPlayers.get(player.socketID) == undefined) {
-				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
-				this.addNetPlayer(netPlayer);
-				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
-			} else {
+	updateNetPlayers(entities, removedEntityIDs) {
+		var entitiesOnClient = EntityManager.entities;
+
+		entities.forEach(entityOnServer => {
+			var entityOnClient = EntityManager.entities[entityOnServer.id];
+
+			if (entityOnClient == undefined) { //Make new entity
+				var newEntity;
+				switch(entityOnServer.type) {
+				case EntityType.PLAYER:
+					newEntity = new NetPlayer(entityOnServer.id, this, entityOnServer.socketID, entityOnServer.name);
+					newEntity.setPosition(entityOnServer.position);
+					newEntity.setRotation(entityOnServer.rotation);
+
+					this.addNetPlayer(newEntity);
+					break;
+				default:
+					throw "Entity type undefined: " + entityOnServer.type;
+					break;
+				}
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) newEntity.insertPositionWithTime(Date.now(), entityOnServer);
+			} else { //Update existing entity
+				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
 				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
-					this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+					entityOnClient.insertPositionWithTime(Date.now(), entityOnServer);
 				} else {
-					this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+					entityOnClient.setPosition(entityOnServer.position);
+					entityOnClient.setRotation(entityOnServer.rotation);
 				}
 			}
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
-			this.netPlayers.forEach((nPlayer) => {
-				if (nPlayer.socketID == this.clientSocketID) return;
-				if (!players.some((player) => {return nPlayer.socketID == player.socketID;})) {
-					var player = this.netPlayers.get(nPlayer.socketID);
-					player.insertPositionWithTime(Date.now(), player.positionBuffer[player.positionBuffer.length - 1].state);
+			entitiesOnClient.forEach(entityOnClient => {
+				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
+				if (!entities.some(entityOnServer => {return entityOnClient.id == entityOnServer.id;})) {
+					entityOnClient.insertPositionWithTime(Date.now(), entityOnClient.positionBuffer[entityOnClient.positionBuffer.length - 1].state);
 				}
 			});
 		}
-		if (removePlayerIDs != undefined) {
-			removePlayerIDs.forEach((socketID) => {
-				this.removeNetPlayer(socketID);
+		if (removedEntityIDs != undefined) {
+			removedEntityIDs.forEach(id => {
+				EntityManager.removeEntity(id);
 			});
 		}
 	}
 	initPlayer(worldInfo) {
-		var self = this;
-		var player = worldInfo.initialWorldState.players.find((player) => {
-			return player.socketID == self.clientSocketID;
+		var cPlayer = worldInfo.entities.find((player) => {
+			return player.socketID == this.clientSocketID;
 		});
 
 		const MOVEMENT_SPEED = 0.003;
 		const TURN_SPEED = 0.0004;
 
-		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
-		this.controller = new FPSController(this.camera, this.renderer.domElement);
-		this.controller.speed = MOVEMENT_SPEED;
-		this.controller.turnSpeed = TURN_SPEED;
-		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y - Constants.PLAYER_HEIGHT_OFFSET, pos.z, rot.x, rot.y);
-		});
-		this.controller.initPose(player.x, player.y + Constants.PLAYER_HEIGHT_OFFSET, player.z, player.rot_x, player.rot_y);
+		//Client Player
+		this.clientPlayer = new NetPlayer(cPlayer.id, this, cPlayer.socketID, cPlayer.name);
+		this.clientPlayer.setPosition(cPlayer.position);
+		this.clientPlayer.setRotation(cPlayer.rotation);
 
-		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
+		//First Person Controller
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
+		this.controller = new FirstPersonController(this.camera, this.renderer.domElement, this.clientPlayer);
+		this.controller.speed = MOVEMENT_SPEED; //TODO move this
+		this.controller.turnSpeed = TURN_SPEED;
+		this.controller.initPose(cPlayer.position.x, cPlayer.position.y, cPlayer.position.z, cPlayer.rotation.x, cPlayer.rotation.y, 0);
+
 		this.addNetPlayer(this.clientPlayer);
-		this.updateNetPlayers(worldInfo.initialWorldState.players);
 	}
 	addNetPlayer(netPlayer) {
 		var socketID = netPlayer.socketID;
@@ -135,7 +158,12 @@ class World {
 		this.scene.add(mapMesh);
 		this.map = worldInfo.map;
 		this.interpretMap(worldInfo.map, worldInfo.width, worldInfo.height);
-		this.setUpMap();
+
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
 
 		//Ambient lighting
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
@@ -146,7 +174,15 @@ class World {
 		directional_light.position.set(1, 1, 0);
 		this.scene.add( directional_light );
 
-		this.testSphere();
+		//Test sphere
+		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
+		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
+		var mesh = new THREE.Mesh( geometry, material );
+		mesh.material.color.setHex( 0xffff00 );
+		mesh.castShadow = true;
+		mesh.receiveShadow = false;
+		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
+		this.scene.add( mesh );
 	}
 	interpretMap(map, width, height) {
 		for (var y = 0; y < height; y++) {
@@ -181,31 +217,15 @@ class World {
 			}
 		}
 	}
-	setUpMap() {
-		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
-		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
-		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
-		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
-		this.bufferMapGeom.setIndex(this.indices);
-	}
-	testSphere(){
-		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
-		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
-		var mesh = new THREE.Mesh( geometry, material );
-		mesh.material.color.setHex( 0xffff00 );
-		mesh.castShadow = true;
-		mesh.receiveShadow = false;
-		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
-		this.scene.add( mesh );
-	}
-	adjustWindowSize(screenW, screenH) {
-		this.screenW = screenW;
-		this.screenH = screenH;
+	updateSize(screenW, screenH) {
+		this.renderer.setSize(screenW, screenH, false);
+		this.camera.aspect = screenW / screenH;
+		this.camera.updateProjectionMatrix();
+		this.domElement = this.renderer.domElement;
 	}
 	update(delta) {
 		this.controller.update(delta);
-		this.camera.position.copy(this.controller.position);
-		this.clientPlayer.setPoseFromController(this.controller);
+
 		this.netPlayers.forEach((nPlayer) => {
 			nPlayer.update(delta);
 		});
@@ -216,9 +236,9 @@ class World {
 		var last = 0;
 		var next = 1;
 
-		this.netPlayers.forEach((nPlayer) => {
-			if (nPlayer.socketID == this.clientSocketID) return;
-			var buffer = nPlayer.positionBuffer;
+		EntityManager.entities.forEach(entity => {
+			if (entity.type == EntityType.PLAYER && entity.socketID == this.clientPlayer.socketID) return;
+			var buffer = entity.positionBuffer;
 
 			while(buffer.length >= 2 && buffer[next].time <= delayedTime) {
 				buffer.shift();
@@ -226,30 +246,27 @@ class World {
 
 			if (buffer.length >= 2 && buffer[last].time <= delayedTime && buffer[next].time >= delayedTime) {
 				var timePercent = (delayedTime - buffer[last].time) / (buffer[next].time - buffer[last].time)
-				var px = LMath.lerp(buffer[last].state.x, buffer[next].state.x, timePercent);
-				var py = LMath.lerp(buffer[last].state.y, buffer[next].state.y, timePercent);
-				var pz = LMath.lerp(buffer[last].state.z, buffer[next].state.z, timePercent);
+				var px = LMath.lerp(buffer[last].state.position.x, buffer[next].state.position.x, timePercent);
+				var py = LMath.lerp(buffer[last].state.position.y, buffer[next].state.position.y, timePercent);
+				var pz = LMath.lerp(buffer[last].state.position.z, buffer[next].state.position.z, timePercent);
 
 				var lastRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-					buffer[last].state.rot_x,
-					buffer[last].state.rot_y,
-					0, "YXZ"));
+					buffer[last].state.rotation.x,
+					buffer[last].state.rotation.y,
+					buffer[last].state.rotation.z, "YXZ"));
 				var nextRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-					buffer[next].state.rot_x,
-					buffer[next].state.rot_y,
-					0, "YXZ"));
+					buffer[next].state.rotation.x,
+					buffer[next].state.rotation.y,
+					buffer[next].state.rotation.z, "YXZ"));
 				var slerpRotation = new THREE.Quaternion();
 				THREE.Quaternion.slerp(lastRotation, nextRotation, slerpRotation, timePercent);
 				var pRot = new THREE.Euler().setFromQuaternion(slerpRotation, "YXZ");
-				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRot.x, pRot.y);
+				entity.position.set(px, py, pz);
+				entity.rotation.set(pRot.x, pRot.y, pRot.z);
 			}
 		});
 	}
 	render() {
-		this.renderer.setClearColor(0x0a0806, 1);
-   	this.renderer.setPixelRatio(window.devicePixelRatio);
-
-   	this.renderer.setSize(this.screenW, this.screenH);
    	this.renderer.render(this.scene, this.camera);
 	}
 	lightUp(x, y, z) {

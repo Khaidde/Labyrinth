@@ -2,15 +2,17 @@ var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 
 var Constants = require("../common/Constants");
+var EntityType = require("../common/EntityType");
 var Assets = require("../../Assets");
 
 class NetPlayer extends Entity {
-	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
-		super(x, y, z, world);
-		this.withRotation(rot_x, rot_y, 0);
+	// constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
+	// 	super(x, y, z, world);
+	constructor(id, world, socketID, name) {
+		super(id, EntityType.PLAYER, world);
 		this.name = name;
 		this.socketID = socketID;
-		this.isClientPlayer = (this.world.clientSocketID == this.socketID);
+		this.isClientPlayer = (this.world.socket.id == this.socketID);
 
 		//TODO assign these to unqiue item entities
 		this.leftHandItem = undefined;
@@ -136,6 +138,7 @@ class NetPlayer extends Entity {
 		this.head.rotation.y = 0;
 		this.head.rotation.z = -this.targetingRotX;
 	}
+	/*
 	setPoseFromController(controller) {
 		if (!this.isClientPlayer) throw "function can't be used by non-client players";
 		this.predictAnimation(controller.camera.position.x, controller.camera.position.y, controller.camera.position.z, controller.euler.y);
@@ -144,9 +147,8 @@ class NetPlayer extends Entity {
 		this.rotation.set(0, controller.euler.y, 0);
 		this.targetingRotX = controller.euler.x;
 		this.targetingRotY = controller.euler.y;
-	}
-	setPlayerPose(x, y, z, rot_x, rot_y) {
-		if (this.isClientPlayer) throw "function can't be used by client player";
+	}*/
+	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.predictAnimation(x, y, z, rot_y);
 		this.position.set(x, y, z);
 		this.targetingRotX = rot_x;

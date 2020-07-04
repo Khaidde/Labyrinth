@@ -1,17 +1,26 @@
 var Constants = require("../common/Constants");
 var Assets = require("../../Assets");
 
+var EntityManager = require("./EntityManager");
+
 class Entity {
-	constructor(x, y, z, world) {
-		this.position = new THREE.Vector3(x, y, z);
-		this.rotation = new THREE.Euler(0, 0, 0, "YXZ");
+	constructor(id, type, world) {
+		this.id = id;
+		this.type = type;
 		this.world = world;
 
+		this.position = new THREE.Vector3();
+		this.rotation = new THREE.Euler(0, 0, 0, Constants.ROTATION_ORDER);
+
 		this.positionBuffer = [];
+
+		EntityManager.addEntity(this);
 	}
-	withRotation(rot_x, rot_y, rot_z) {
-		this.rotation.set(rot_x, rot_y, rot_z);
-		return this;
+	setPosition(position) {
+		this.position.set(position.x, position.y, position.z);
+	}
+	setRotation(rotation) {
+		this.rotation.set(rotation.x, rotation.y, rotation.z);
 	}
 	withModel(assetName) {
 		this.modelInfo = Assets.get(assetName).createClone();

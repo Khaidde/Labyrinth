@@ -6,6 +6,8 @@ var Assets = require("../Assets");
 
 var World = require("./world/World");
 
+var ECStest = require("./ECS/ECSDemo");
+
 const socket = io();
 
 const main = {
@@ -14,8 +16,8 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
-			main.world = new World(socketID, socket, worldInfo);
+		socket.on(Constants.NET_INIT_WORLD, function(worldInfo) {
+			main.world = new World(socket, worldInfo);
 			main.world.controller.addPointUnlockListener(function() {
 				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -23,6 +25,7 @@ const main = {
 				document.getElementById("pauseMenu").style.pointerEvents = "auto";
 			});
 			main.world.controller.lock();
+			main.world.updateSize(screenW, screenH);
 		});
 
 		socket.on(Constants.NET_SERVER_TO_CLIENT_FORCE_DISCONNECT, function() {
@@ -135,7 +138,6 @@ const main = {
 		this.updateSize();
 
 		if (this.world != undefined) {
-			this.world.adjustWindowSize(screenW, screenH);
 			this.world.update(delta);
 		}
 	},
@@ -159,31 +161,33 @@ const main = {
 	    	document.body.clientHeight;
 		if (prevW != screenW || prevH != screenH) {
 			if (main.world != undefined) {
-				main.world.renderer.setSize(screenW, screenH, false);
-				main.world.camera.aspect = screenW / screenH;
-  				main.world.camera.updateProjectionMatrix();
-				main.world.domElement = main.world.renderer.domElement;
+				main.world.updateSize(screenW, screenH);
 			}
 		}
 	}
 }
 
-window.onload =
-	function Game() {
-		document.body.style.marginTop = 0;
-    	document.body.style.marginLeft = 0;
-    	document.body.style.marginBottom = 0;
-    	document.body.style.marginUp = 0;
+window.onload = () => {
+	document.body.style.marginTop = 0;
+ 	document.body.style.marginLeft = 0;
+ 	document.body.style.marginBottom = 0;
+ 	document.body.style.marginUp = 0;
 
-		main.updateSize();
-		main.init();
+	main.updateSize();
+	main.init();
 
-		var lastUpdateTime = Date.now();
-		setInterval(function() {
-			var currentTime = Date.now();
-			var delta = currentTime - lastUpdateTime;
-    		main.update(delta);
-    		main.render();
-			lastUpdateTime = currentTime;
-  		}, 1000.0 / Constants.FPS);
-  	}
+	var displayedFPS = Constants.FPS;
+	var lastUpdateTime = Date.now();
+	setInterval(function() {
+		var currentTime = Date.now();
+		var delta = currentTime - lastUpdateTime;
+		var actualFPS = 1000 / delta;
+
+		displayedFPS = actualFPS * (1.0 - Constants.FPS_SMOOTHING_WEIGHT_RATIO) + displayedFPS * Constants.FPS_SMOOTHING_WEIGHT_RATIO;
+		//console.log(displayedFPS); TODO this doesn't work?
+
+ 		main.update(delta);
+ 		main.render();
+		lastUpdateTime = currentTime;
+	}, 1000.0 / Constants.FPS);
+}

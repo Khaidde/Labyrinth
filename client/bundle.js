@@ -164,6 +164,389 @@ function parallelTraverse( a, b, callback ) {
 module.exports = Assets;
 
 },{}],2:[function(require,module,exports){
+class Component {
+	constructor(type, data) {
+		this.type = type;
+		this.data = data;
+	}
+}
+
+module.exports = Component;
+
+},{}],3:[function(require,module,exports){
+const Utils = require("../common/Utils");
+
+const Entity = require("./Entity");
+const Component = require("./Component");
+const System = require("./System");
+
+//Adaption of https://github.com/yagl/ecs
+class Manager {
+	constructor() {
+		this.entities = [];
+		this.systems = [];
+
+		this.archetypes = [];
+
+		this.entitiesSystemsDirty = [];
+	}
+	getEntityById(id) {
+   	for (var i = 0, entity; entity = this.entities[i]; i++) {
+      	if (entity.id === id) {
+        		return entity;
+      	}
+    	}
+    	return null;
+	}
+  	addEntity(entity) {
+   	this.entities.push(entity);
+    	entity.addToManager(this);
+  	}
+	removeEntityById(id) {
+		for (var i = 0, entity; entity = this.entities[i]; i++) {
+			if (entity.id === entityId) {
+      		entity.dispose();
+        		this.removeEntityFromDirty(entity);
+        		Utils.splice(this.entities, i, 1);
+      		return entity;
+   		}
+		}
+	}
+  	removeEntity(entity) {
+   	var index = this.entities.indexOf(entity);
+    	var entityRemoved = null;
+
+    	if (index !== -1) {
+      	entityRemoved = this.entities[index];
+
+      	entity.dispose();
+      	this.removeEntityFromDirty(entityRemoved);
+      	Utils.splice(this.entities, index, 1);
+    	}
+
+    	return entityRemoved;
+	}
+	removeEntityFromDirty(entity) {
+    	var index = this.entitiesSystemsDirty.indexOf(entity);
+
+    	if (index !== -1) {
+	      Utils.splice(this.entities, index, 1);
+   	}
+  	}
+	addSystem(system) {
+		this.systems.push(system);
+
+		for (var i = 0, entity; entity = this.entities[i]; i++) {
+   		if (system.test(entity)) {
+      		system.addEntity(entity);
+      	}
+    	}
+	}
+	addArrayOfSystems(systems) {
+		for (var i = 0, system; system = systems[i]; i++) {
+			this.addSystem(system);
+		}
+	}
+	removeSystem(system) {
+		var index = this.systems.indexOf(system);
+
+		if (index !== -1) {
+			Utils.splice(this.systems, index, 1);
+			system.dispose();
+		}
+	}
+	createEntity(typeName, id) {
+		var constructor = this.archetypes[typeName];
+		return new constructor(id);
+	}
+	addEntityArchetype(typeName, archetype) {
+		this.archetypes[typeName] = archetype;
+	}
+	removeEntityArchetype(typeName) {
+		if (!this.archetypes[typeName]) {
+			throw "archetype {" + typeName + "} does not exist";
+			return;
+		}
+		this.archetypes[typeName] = undefined;
+	}
+	dispose() {
+		for (var i = 0, system; system = this.systems[0]; i++) {
+      	this.removeSystem(system);
+    	}
+		for (var i = 0, entity; entity = this.entities[0]; i++) {
+      	this.removeEntity(entity);
+    	}
+	}
+	update(delta) {
+		for (var i = 0, system; system = this.systems[i]; i++) {
+			if (this.entitiesSystemsDirty.length) {
+				this.cleanEntitySystems();
+			}
+			system.updateAll(delta);
+		}
+	}
+	cleanEntitySystems() {
+		for (let i = 0, entity; entity = this.entitiesSystemsDirty[i]; i++) {
+      	for (let s = 0, system; system = this.systems[s]; s++) {
+        		var index = entity.systems.indexOf(system);
+        		var entityTest = system.test(entity);
+
+				if (index === -1 && entityTest) {
+					system.addEntity(entity);
+				} else if (index !== -1 && !entityTest) {
+					system.removeEntity(entity);
+				}
+			}
+			entity.systemsDirty = false;
+   	}
+    	this.entitiesSystemsDirty = [];
+	}
+}
+
+module.exports = {
+	Manager: Manager,
+	Entity: Entity,
+	Component: Component,
+	System: System
+}
+
+},{"../common/Utils":12,"./Component":2,"./Entity":5,"./System":6}],4:[function(require,module,exports){
+const Constants = require("../common/Constants");
+const EntityType = require("../common/EntityType");
+const ComponentType = require("../common/ComponentType");
+
+const ECS = require("./ECS");
+
+//_______________EXAMPLE USAGE OF ECS_______________//
+
+//========ENTITY CLASSES========//
+class Player extends ECS.Entity {
+	constructor(id) {
+		super(id, EntityType.PLAYER);
+		this.addArrayOfComponents([
+			new TransformComponent(),
+			new ModelComponent()
+		]);
+	}
+}
+
+//========COMPONENT CLASSES========//
+class TransformComponent extends ECS.Component {
+	constructor() {
+		super(ComponentType.TRANSFORM, {
+			position: new THREE.Vector3(),
+			rotation: new THREE.Euler(0, 0, 0, Constants.ROTATION_ORDER)
+		});
+	}
+}
+class ModelComponent extends ECS.Component {
+	constructor() {
+		super(ComponentType.MODEL, {
+			assetName: ""
+		});
+	}
+}
+
+//========SYSTEM CLASSES========//
+class MovementSystem extends ECS.System {
+	test(entity) { //Test whether or not the entity's components are compatible with the system
+		return entity.contains(ComponentType.TRANSFORM);
+	}
+	enter(entity) { //Called when the entity is added to the system
+		var transform = entity.get(ComponentType.TRANSFORM);
+		transform.rotation.set(10, 10, 10);
+	}
+	update(entity, delta) {
+		var transform = entity.get(ComponentType.TRANSFORM);
+		transform.position.x += 5 * delta;
+		transform.position.y += 5 * delta;
+	}
+}
+class RenderSystem extends ECS.System {
+	test(entity) {
+		return entity.contains(ComponentType.TRANSFORM)
+			&& entity.contains(ComponentType.MODEL);
+	}
+	update(entity) {
+		var transform = entity.get(ComponentType.TRANSFORM);
+		var model = entity.get(ComponentType.MODEL);
+
+		var pos = transform.position;
+		var x = pos.x;
+		var y = pos.y;
+		var z = pos.z;
+
+		//"render" the model
+		console.log("Model {" + model.assetName + "} has been rendered at coordinate (" + pos.x + "," + pos.y + "," + pos.z + ")");
+	}
+	exit(entity) { //Called when the entity is removed from the system
+		entity.get(ComponentType.MODEL).assetName = "";
+		console.log("Entity model has been disposed");
+		console.log(entity);
+	}
+}
+
+var manager = new ECS.Manager();
+manager.addArrayOfSystems([
+	new MovementSystem(),
+	new RenderSystem()
+]);
+
+manager.addEntityArchetype(EntityType.PLAYER, Player);
+
+var player = new Player(5); //Assign random id of 5
+player.get(ComponentType.TRANSFORM).position.set(10, 20, 30);
+player.get(ComponentType.MODEL).assetName = "playerModel.gltf";
+manager.addEntity(player);
+
+var player2 = manager.createEntity(EntityType.PLAYER, 11); //Use archetype to create player with random id of 11
+player2.get(ComponentType.TRANSFORM).position.set(-11, -13, -15);
+player2.get(ComponentType.MODEL).assetName = "playerModel2.gltf";
+manager.addEntity(player2);
+
+const TOTAL_UPDATES = 3;
+const SIMULATED_ELAPSED_TIME_MS = 5;
+for (var i = 0; i < TOTAL_UPDATES; i++) {
+	console.log("-----------------------");
+
+	manager.update(SIMULATED_ELAPSED_TIME_MS);
+
+	console.log("-----------------------");
+}
+
+//ExepectedOutput:
+
+// -----------------------
+// Model {playerModel.gltf} has been rendered at coordinate (35,45,30)
+// Model {playerModel2.gltf} has been rendered at coordinate (14,12,-15)
+// -----------------------
+// -----------------------
+// Model {playerModel.gltf} has been rendered at coordinate (60,70,30)
+// Model {playerModel2.gltf} has been rendered at coordinate (39,37,-15)
+// -----------------------
+// -----------------------
+// Model {playerModel.gltf} has been rendered at coordinate (85,95,30)
+// Model {playerModel2.gltf} has been rendered at coordinate (64,62,-15)
+// -----------------------
+
+},{"../common/ComponentType":8,"../common/Constants":9,"../common/EntityType":10,"./ECS":3}],5:[function(require,module,exports){
+const Utils = require("../common/Utils");
+const EntityType = require("../common/EntityType");
+
+class Entity {
+	constructor(id, type) {
+		this.id = id;
+		this.type = type ? type : EntityType.GENERIC;
+
+		this.systemsDirty = false;
+
+		this.components = [];
+		this.systems = [];
+	}
+	addToManager(manager) {
+		this.manager = manager;
+		this.setSystemsDirty();
+	}
+	setSystemsDirty() {
+		if (!this.systemsDirty && this.manager) {
+			this.systemsDirty = true;
+			this.manager.entitiesSystemsDirty.push(this);
+		}
+	}
+	addSystem(system) {
+		this.systems.push(system);
+	}
+	removeSystem(system) {
+		var index = this.systems.indexOf(system);
+
+		if (index !== -1) {
+			Utils.splice(this.systems, index, 1);
+		} else {
+			throw "entity {" + this + "} does not contain system {" + system + "}";
+		}
+	}
+	addComponent(component) {
+		this.components[component.type] = component.data;
+		this.setSystemsDirty();
+	}
+	addArrayOfComponents(components) {
+		for (var i = 0, component; component = components[i]; i++) {
+			this.addComponent(component);
+		}
+	}
+	removeComponent(type) {
+		if (!this.components[type]) {
+			throw "entity {" + this + "} does not contain component {" + type + "}";
+			return;
+		}
+		this.components[type] = undefined;
+		this.setSystemsDirty();
+	}
+	dispose() {
+		for (var i = 0, system; system = this.systems[0]; i++) {
+      	system.removeEntity(this);
+    	}
+	}
+	get(type) {
+		return this.components[type];
+	}
+	contains(type) {
+		return !!this.components[type];
+	}
+}
+
+module.exports = Entity;
+
+},{"../common/EntityType":10,"../common/Utils":12}],6:[function(require,module,exports){
+const Utils = require("../common/Utils");
+
+class System {
+	constructor() {
+		this.entities = [];
+	}
+	addEntity(entity) {
+		entity.addSystem(this);
+		this.entities.push(entity);
+
+		this.enter(entity);
+	}
+	removeEntity(entity) {
+		var index = this.entities.indexOf(entity);
+
+		if (index !== -1) {
+			entity.removeSystem(this);
+			Utils.splice(this.entities, index, 1);
+
+			this.exit(entity);
+		}
+	}
+	dispose() {
+		for (let i = 0, entity; entity = this.entities[0]; i++) {
+      	entity.removeSystem(this);
+      	this.exit(entity);
+   	}
+	}
+	enter(entity) {}
+	test(entity) {
+		throw "System {" + this + "} requires a /'test/' function overload";
+		return false;
+	}
+	exit(entity) {}
+	postUpdate(delta) {}
+	updateAll(delta) {
+		this.preUpdate(delta);
+    	for (let i = 0, entity; entity = this.entities[i]; i++) {
+      	this.update(entity, delta);
+    	}
+    	this.postUpdate(delta);
+	}
+	update(entity) {}
+	preUpdate(delta) {}
+}
+
+module.exports = System;
+
+},{"../common/Utils":12}],7:[function(require,module,exports){
 var screenW;
 var screenH;
 
@@ -171,6 +554,8 @@ var Constants = require("./common/Constants");
 var Assets = require("../Assets");
 
 var World = require("./world/World");
+
+var ECStest = require("./ECS/ECSDemo");
 
 const socket = io();
 
@@ -180,8 +565,8 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.NET_INIT_WORLD, function(socketID, worldInfo) {
-			main.world = new World(socketID, socket, worldInfo);
+		socket.on(Constants.NET_INIT_WORLD, function(worldInfo) {
+			main.world = new World(socket, worldInfo);
 			main.world.controller.addPointUnlockListener(function() {
 				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -189,6 +574,7 @@ const main = {
 				document.getElementById("pauseMenu").style.pointerEvents = "auto";
 			});
 			main.world.controller.lock();
+			main.world.updateSize(screenW, screenH);
 		});
 
 		socket.on(Constants.NET_SERVER_TO_CLIENT_FORCE_DISCONNECT, function() {
@@ -301,7 +687,6 @@ const main = {
 		this.updateSize();
 
 		if (this.world != undefined) {
-			this.world.adjustWindowSize(screenW, screenH);
 			this.world.update(delta);
 		}
 	},
@@ -325,39 +710,52 @@ const main = {
 	    	document.body.clientHeight;
 		if (prevW != screenW || prevH != screenH) {
 			if (main.world != undefined) {
-				main.world.renderer.setSize(screenW, screenH, false);
-				main.world.camera.aspect = screenW / screenH;
-  				main.world.camera.updateProjectionMatrix();
-				main.world.domElement = main.world.renderer.domElement;
+				main.world.updateSize(screenW, screenH);
 			}
 		}
 	}
 }
 
-window.onload =
-	function Game() {
-		document.body.style.marginTop = 0;
-    	document.body.style.marginLeft = 0;
-    	document.body.style.marginBottom = 0;
-    	document.body.style.marginUp = 0;
+window.onload = () => {
+	document.body.style.marginTop = 0;
+ 	document.body.style.marginLeft = 0;
+ 	document.body.style.marginBottom = 0;
+ 	document.body.style.marginUp = 0;
 
-		main.updateSize();
-		main.init();
+	main.updateSize();
+	main.init();
 
-		var lastUpdateTime = Date.now();
-		setInterval(function() {
-			var currentTime = Date.now();
-			var delta = currentTime - lastUpdateTime;
-    		main.update(delta);
-    		main.render();
-			lastUpdateTime = currentTime;
-  		}, 1000.0 / Constants.FPS);
-  	}
+	var displayedFPS = Constants.FPS;
+	var lastUpdateTime = Date.now();
+	setInterval(function() {
+		var currentTime = Date.now();
+		var delta = currentTime - lastUpdateTime;
+		var actualFPS = 1000 / delta;
 
-},{"../Assets":1,"./common/Constants":3,"./world/World":11}],3:[function(require,module,exports){
-var Constants = {
+		displayedFPS = actualFPS * (1.0 - Constants.FPS_SMOOTHING_WEIGHT_RATIO) + displayedFPS * Constants.FPS_SMOOTHING_WEIGHT_RATIO;
+		//console.log(displayedFPS); TODO this doesn't work?
+
+ 		main.update(delta);
+ 		main.render();
+		lastUpdateTime = currentTime;
+	}, 1000.0 / Constants.FPS);
+}
+
+},{"../Assets":1,"./ECS/ECSDemo":4,"./common/Constants":9,"./world/World":19}],8:[function(require,module,exports){
+const ComponentType = {
+	TRANSFORM: "transform",
+	MODEL: "model"
+}
+
+module.exports = ComponentType;
+
+},{}],9:[function(require,module,exports){
+const Constants = {
 	FPS: 60,
+	FPS_SMOOTHING_WEIGHT_RATIO: 0.9,
 	SERVER_SEND_RATE: 20,
+
+	ROTATION_ORDER: "YXZ",
 
 	//World measurement constants
 	MAP_BLOCK_LENGTH: 5,
@@ -378,7 +776,15 @@ var Constants = {
 
 module.exports = Constants;
 
-},{}],4:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+const EntityType = {
+	GENERIC: "none",
+	PLAYER: "player"
+}
+
+module.exports = EntityType;
+
+},{}],11:[function(require,module,exports){
 const LMath = {
 	lerp: function(x0, x1, percent) {
 		var p = LMath.clamp(percent, 0.0, 1.0);
@@ -391,18 +797,35 @@ const LMath = {
 
 module.exports = LMath;
 
-},{}],5:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 const Utils = {
 	bind: function(scope, fn) {
 		return function onEvent() {
 			fn.apply(scope, arguments);
 		};
-	}
+	},
+	splice: function(array, startIndex, removeCount) {
+	  var len = array.length;
+	  var removeLen = 0;
+
+	  if (startIndex >= len || removeCount === 0) {
+	    return;
+	  }
+
+	  removeCount = startIndex + removeCount > len ? (len - startIndex) : removeCount;
+	  removeLen = len - removeCount;
+
+	  for (var i = startIndex; i < len; i += 1) {
+	    array[i] = array[i + removeCount];
+	  }
+
+	  array.length = removeLen;
+  }
 }
 
 module.exports = Utils;
 
-},{}],6:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var PlateFrame = require("./PlateFrame");
 var Constants = require("../common/Constants");
 
@@ -485,21 +908,30 @@ class BufferMapBlock {
 
 module.exports = BufferMapBlock;
 
-},{"../common/Constants":3,"./PlateFrame":10}],7:[function(require,module,exports){
+},{"../common/Constants":9,"./PlateFrame":18}],14:[function(require,module,exports){
 var Constants = require("../common/Constants");
 var Assets = require("../../Assets");
 
+var EntityManager = require("./EntityManager");
+
 class Entity {
-	constructor(x, y, z, world) {
-		this.position = new THREE.Vector3(x, y, z);
-		this.rotation = new THREE.Euler(0, 0, 0, "YXZ");
+	constructor(id, type, world) {
+		this.id = id;
+		this.type = type;
 		this.world = world;
 
+		this.position = new THREE.Vector3();
+		this.rotation = new THREE.Euler(0, 0, 0, Constants.ROTATION_ORDER);
+
 		this.positionBuffer = [];
+
+		EntityManager.addEntity(this);
 	}
-	withRotation(rot_x, rot_y, rot_z) {
-		this.rotation.set(rot_x, rot_y, rot_z);
-		return this;
+	setPosition(position) {
+		this.position.set(position.x, position.y, position.z);
+	}
+	setRotation(rotation) {
+		this.rotation.set(rotation.x, rotation.y, rotation.z);
 	}
 	withModel(assetName) {
 		this.modelInfo = Assets.get(assetName).createClone();
@@ -550,12 +982,40 @@ class Entity {
 
 module.exports = Entity;
 
-},{"../../Assets":1,"../common/Constants":3}],8:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":9,"./EntityManager":15}],15:[function(require,module,exports){
 var Utils = require("../common/Utils");
 
+const EntityManager = {
+	entities: [],
+	addEntity(entity) {
+		this.entities[entity.id] = entity;
+	},
+	removeEntity(id) {
+		var entity = this.entities[id];
+    	if (entity != undefined) {
+      	Utils.splice(this.entities, id, 1);
+    	} else {
+			throw "entity {" + entity + "} does not exist and can't be removed";
+		}
+		entity.dispose();
+	},
+	dispose() {
+		this.entities.forEach(entity => {
+			entity.dispose();
+		});
+	}
+}
+
+module.exports = EntityManager;
+
+},{"../common/Utils":12}],16:[function(require,module,exports){
+var Utils = require("../common/Utils");
+var Constants = require("../common/Constants");
+
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
-class FPSController {
-	constructor(camera, domElement) {
+class FirstPersonController {
+	constructor(camera, domElement, entity) {
+		this.entity = entity;
 		this.camera = camera;
 
 		this.speed = 1;
@@ -571,7 +1031,9 @@ class FPSController {
 
 		this.sprinting = false;
 
-		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
+		this.position = new THREE.Vector3();
+		this.rotation = new THREE.Euler(0, 0, 0, Constants.ROTATION_ORDER);
+
 		this.PI_2 = Math.PI / 2;
 		this.vec = new THREE.Vector3();
 
@@ -582,32 +1044,26 @@ class FPSController {
 		this.lockCallback = function(){};
 		this.unlockCallback = function(){};
 
-		this.initEvents();
-	}
-	dispose() {
-		this.camera = null;
-		this.enabled = false;
-	}
-	addPoseChangeListener(callback) {
-		this.onPoseChange = callback;
-	}
-	initEvents() {
 		this.enabled = true;
-
 		document.addEventListener("pointerlockchange", Utils.bind(this, this.onPointerlockChange), false);
 		document.addEventListener('mousemove', Utils.bind(this, this.onMouseMove), false);
 		document.addEventListener('keydown', Utils.bind(this, this.onKeyDown), false);
 		document.addEventListener('keyup', Utils.bind(this, this.onKeyUp), false);
 	}
-	initPose(x, y, z, rotX, rotY) {
-		this.position = new THREE.Vector3(x, y, z);
-		this.camera.position.set(x, y, z);
+	initPose(x, y, z, rotX, rotY, rotZ) {
+		this.position.set(x, y, z);
+		this.rotation = new THREE.Euler(rotX, rotY, rotZ, Constants.ROTATION_ORDER);
 
-		this.euler.x = rotX;
-		this.euler.y = rotY;
-		this.camera.quaternion.setFromEuler(this.euler);
-
-		this.onPoseChange(this.position, this.euler);
+		this.onPoseChange(this.position, this.rotation);
+	}
+	dispose() {
+		this.enabled = false;
+	}
+	onPoseChange(position, rotation) {
+		this.entity.world.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, position, rotation.toVector3());
+	}
+	addPoseChangeListener(callback) {
+		this.onPoseChange = callback;
 	}
 	addPointLockListener(callback) {
 		this.lockCallback = callback;
@@ -628,16 +1084,16 @@ class FPSController {
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
 		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-		this.euler.setFromQuaternion(this.camera.quaternion);
+		this.rotation.setFromQuaternion(this.camera.quaternion);
 
-		this.euler.y -= movementX * this.turnSpeed;
-		this.euler.x -= movementY * this.turnSpeed;
+		this.rotation.y -= movementX * this.turnSpeed;
+		this.rotation.x -= movementY * this.turnSpeed;
 
-		this.euler.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.euler.x));
+		this.rotation.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.rotation.x));
 
-		this.camera.quaternion.setFromEuler(this.euler);
+		this.camera.quaternion.setFromEuler(this.rotation); //TODO move this
 
-		this.isRotationChanged = true;
+		this.isTurning = true;
 	}
 	onKeyDown(event) {
 		if (!this.enabled) return;
@@ -724,10 +1180,12 @@ class FPSController {
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
 
 		this.isMoving = !previousPosition.equals(this.position);
-		if(this.isMoving || this.isRotationChanged) {
-			this.onPoseChange(this.position, this.euler);
-			//if (isPositionChanged) this.camera.position.copy(this.position);
-			if (this.isRotationChanged) this.isRotationChanged = false;
+		if(this.isMoving || this.isTurning) {
+			this.onPoseChange(this.position, this.rotation);
+			this.entity.updatePlayerPose(this.position.x, this.position.y, this.position.z, this.rotation.x, this.rotation.y);
+			this.camera.position.addVectors(this.position, new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET, 0));
+			this.camera.rotation.copy(this.rotation);
+			if (this.isTurning) this.isTurning = false;
 		}
 	}
 	lock() {
@@ -738,22 +1196,24 @@ class FPSController {
 	}
 }
 
-module.exports = FPSController;
+module.exports = FirstPersonController;
 
-},{"../common/Utils":5}],9:[function(require,module,exports){
+},{"../common/Constants":9,"../common/Utils":12}],17:[function(require,module,exports){
 var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 
 var Constants = require("../common/Constants");
+var EntityType = require("../common/EntityType");
 var Assets = require("../../Assets");
 
 class NetPlayer extends Entity {
-	constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
-		super(x, y, z, world);
-		this.withRotation(rot_x, rot_y, 0);
+	// constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
+	// 	super(x, y, z, world);
+	constructor(id, world, socketID, name) {
+		super(id, EntityType.PLAYER, world);
 		this.name = name;
 		this.socketID = socketID;
-		this.isClientPlayer = (this.world.clientSocketID == this.socketID);
+		this.isClientPlayer = (this.world.socket.id == this.socketID);
 
 		//TODO assign these to unqiue item entities
 		this.leftHandItem = undefined;
@@ -879,6 +1339,7 @@ class NetPlayer extends Entity {
 		this.head.rotation.y = 0;
 		this.head.rotation.z = -this.targetingRotX;
 	}
+	/*
 	setPoseFromController(controller) {
 		if (!this.isClientPlayer) throw "function can't be used by non-client players";
 		this.predictAnimation(controller.camera.position.x, controller.camera.position.y, controller.camera.position.z, controller.euler.y);
@@ -887,9 +1348,8 @@ class NetPlayer extends Entity {
 		this.rotation.set(0, controller.euler.y, 0);
 		this.targetingRotX = controller.euler.x;
 		this.targetingRotY = controller.euler.y;
-	}
-	setPlayerPose(x, y, z, rot_x, rot_y) {
-		if (this.isClientPlayer) throw "function can't be used by client player";
+	}*/
+	updatePlayerPose(x, y, z, rot_x, rot_y) {
 		this.predictAnimation(x, y, z, rot_y);
 		this.position.set(x, y, z);
 		this.targetingRotX = rot_x;
@@ -924,7 +1384,7 @@ class NetPlayer extends Entity {
 
 module.exports = NetPlayer;
 
-},{"../../Assets":1,"../common/Constants":3,"./BufferMapBlock":6,"./Entity":7}],10:[function(require,module,exports){
+},{"../../Assets":1,"../common/Constants":9,"../common/EntityType":10,"./BufferMapBlock":13,"./Entity":14}],18:[function(require,module,exports){
 class PlateFrame{
 	constructor(cenX,halflX, cenY,halflY, cenZ,halflZ, R, G, B, world) {
 		world.plateNum++;
@@ -960,18 +1420,26 @@ class PlateFrame{
 
 module.exports = PlateFrame;
 
-},{}],11:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var Constants = require("../common/Constants");
+var EntityType = require("../common/EntityType");
+var Utils = require("../common/Utils");
 var LMath = require("../common/Math/LMath");
+
+var EntityManager = require("./EntityManager");
 
 var Entity = require("./Entity");
 var NetPlayer = require("./NetPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
-var FPSController = require("./FPSController");
+var FirstPersonController = require("./FirstPersonController");
 
 class World {
-	constructor (socketID, socket, worldInfo) {
+	constructor (socket, worldInfo) {
+		//Initialize networking
+		this.clientSocketID = socket.id;
+		this.socket = socket;
+
 		//Initialize the map mesh of points
 		this.bufferMapGeom = new THREE.BufferGeometry();
 		this.positions = [];
@@ -989,18 +1457,17 @@ class World {
 
 		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
+		this.renderer.setClearColor(0x0a0806, 1);
+   	this.renderer.setPixelRatio(window.devicePixelRatio);
 
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
 
-		//Initialize networking
-		this.clientSocketID = socketID;
-		this.socket = socket;
+		//Initialize server listeners
 		this.initServerListeners();
 
 		//Initialize players
 		this.netPlayers = new Map();
-		var clientPlayer = worldInfo.clientPlayer;
 		this.initPlayer(worldInfo);
 
 		this.initMap(worldInfo);
@@ -1009,67 +1476,83 @@ class World {
 		this.bufferMapGeom.dispose();
 		this.controller.dispose();
 		this.scene.dispose();
-		this.domElement.parentElement.removeChild(this.domElement);
 		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
+
+		EntityManager.dispose();
+		this.domElement.parentElement.removeChild(this.domElement);
 	}
 	initServerListeners() {
-		var self = this;
-		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, function(worldInfo) {
-			self.updateNetPlayers(worldInfo.players, worldInfo.removePlayerIDs);
+		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, Utils.bind(this, worldInfo => {
+			this.updateNetPlayers(worldInfo.entities, worldInfo.removedEntityIDs);
 			//Do the same for entities when they are included TODO
-		});
+		}));
 	}
-	updateNetPlayers(players, removePlayerIDs) {
-		players.forEach((player) => {
-			if (player.socketID == this.clientSocketID) return;
-			if (this.netPlayers.get(player.socketID) == undefined) {
-				var netPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
-				this.addNetPlayer(netPlayer);
-				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
-			} else {
+	updateNetPlayers(entities, removedEntityIDs) {
+		var entitiesOnClient = EntityManager.entities;
+
+		entities.forEach(entityOnServer => {
+			var entityOnClient = EntityManager.entities[entityOnServer.id];
+
+			if (entityOnClient == undefined) { //Make new entity
+				var newEntity;
+				switch(entityOnServer.type) {
+				case EntityType.PLAYER:
+					newEntity = new NetPlayer(entityOnServer.id, this, entityOnServer.socketID, entityOnServer.name);
+					newEntity.setPosition(entityOnServer.position);
+					newEntity.setRotation(entityOnServer.rotation);
+
+					this.addNetPlayer(newEntity);
+					break;
+				default:
+					throw "Entity type undefined: " + entityOnServer.type;
+					break;
+				}
+				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) newEntity.insertPositionWithTime(Date.now(), entityOnServer);
+			} else { //Update existing entity
+				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
 				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
-					this.netPlayers.get(player.socketID).insertPositionWithTime(Date.now(), player);
+					entityOnClient.insertPositionWithTime(Date.now(), entityOnServer);
 				} else {
-					this.netPlayers.get(player.socketID).setPlayerPose(player.x, player.y, player.z, player.rot_x, player.rot_y);
+					entityOnClient.setPosition(entityOnServer.position);
+					entityOnClient.setRotation(entityOnServer.rotation);
 				}
 			}
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
-			this.netPlayers.forEach((nPlayer) => {
-				if (nPlayer.socketID == this.clientSocketID) return;
-				if (!players.some((player) => {return nPlayer.socketID == player.socketID;})) {
-					var player = this.netPlayers.get(nPlayer.socketID);
-					player.insertPositionWithTime(Date.now(), player.positionBuffer[player.positionBuffer.length - 1].state);
+			entitiesOnClient.forEach(entityOnClient => {
+				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
+				if (!entities.some(entityOnServer => {return entityOnClient.id == entityOnServer.id;})) {
+					entityOnClient.insertPositionWithTime(Date.now(), entityOnClient.positionBuffer[entityOnClient.positionBuffer.length - 1].state);
 				}
 			});
 		}
-		if (removePlayerIDs != undefined) {
-			removePlayerIDs.forEach((socketID) => {
-				this.removeNetPlayer(socketID);
+		if (removedEntityIDs != undefined) {
+			removedEntityIDs.forEach(id => {
+				EntityManager.removeEntity(id);
 			});
 		}
 	}
 	initPlayer(worldInfo) {
-		var self = this;
-		var player = worldInfo.initialWorldState.players.find((player) => {
-			return player.socketID == self.clientSocketID;
+		var cPlayer = worldInfo.entities.find((player) => {
+			return player.socketID == this.clientSocketID;
 		});
 
 		const MOVEMENT_SPEED = 0.003;
 		const TURN_SPEED = 0.0004;
 
-		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
-		this.controller = new FPSController(this.camera, this.renderer.domElement);
-		this.controller.speed = MOVEMENT_SPEED;
-		this.controller.turnSpeed = TURN_SPEED;
-		this.controller.addPoseChangeListener((pos, rot) => {
-			self.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, pos.x, pos.y - Constants.PLAYER_HEIGHT_OFFSET, pos.z, rot.x, rot.y);
-		});
-		this.controller.initPose(player.x, player.y + Constants.PLAYER_HEIGHT_OFFSET, player.z, player.rot_x, player.rot_y);
+		//Client Player
+		this.clientPlayer = new NetPlayer(cPlayer.id, this, cPlayer.socketID, cPlayer.name);
+		this.clientPlayer.setPosition(cPlayer.position);
+		this.clientPlayer.setRotation(cPlayer.rotation);
 
-		this.clientPlayer = new NetPlayer(player.socketID, player.name, player.x, player.y, player.z, player.rot_x, player.rot_y, this);
+		//First Person Controller
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
+		this.controller = new FirstPersonController(this.camera, this.renderer.domElement, this.clientPlayer);
+		this.controller.speed = MOVEMENT_SPEED; //TODO move this
+		this.controller.turnSpeed = TURN_SPEED;
+		this.controller.initPose(cPlayer.position.x, cPlayer.position.y, cPlayer.position.z, cPlayer.rotation.x, cPlayer.rotation.y, 0);
+
 		this.addNetPlayer(this.clientPlayer);
-		this.updateNetPlayers(worldInfo.initialWorldState.players);
 	}
 	addNetPlayer(netPlayer) {
 		var socketID = netPlayer.socketID;
@@ -1098,7 +1581,12 @@ class World {
 		this.scene.add(mapMesh);
 		this.map = worldInfo.map;
 		this.interpretMap(worldInfo.map, worldInfo.width, worldInfo.height);
-		this.setUpMap();
+
+		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
+		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
+		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
+		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
+		this.bufferMapGeom.setIndex(this.indices);
 
 		//Ambient lighting
 		var ambient_light = new THREE.AmbientLight( 0xffffff, .5 ); // soft white light
@@ -1109,7 +1597,15 @@ class World {
 		directional_light.position.set(1, 1, 0);
 		this.scene.add( directional_light );
 
-		this.testSphere();
+		//Test sphere
+		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
+		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
+		var mesh = new THREE.Mesh( geometry, material );
+		mesh.material.color.setHex( 0xffff00 );
+		mesh.castShadow = true;
+		mesh.receiveShadow = false;
+		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
+		this.scene.add( mesh );
 	}
 	interpretMap(map, width, height) {
 		for (var y = 0; y < height; y++) {
@@ -1144,31 +1640,15 @@ class World {
 			}
 		}
 	}
-	setUpMap() {
-		this.bufferMapGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), this.positionNumComponents));
-		this.bufferMapGeom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.normals), this.normalNumComponents));
-		this.bufferMapGeom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.uvs), this.uvNumComponents));
-		this.bufferMapGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3, true));
-		this.bufferMapGeom.setIndex(this.indices);
-	}
-	testSphere(){
-		var geometry = new THREE.SphereGeometry(Constants.MAP_BLOCK_LENGTH/2, 50, 50 );
-		var material = new THREE.MeshPhongMaterial( {wireframe:false} );
-		var mesh = new THREE.Mesh( geometry, material );
-		mesh.material.color.setHex( 0xffff00 );
-		mesh.castShadow = true;
-		mesh.receiveShadow = false;
-		mesh.position.y = Constants.MAP_BLOCK_LENGTH*3/2;
-		this.scene.add( mesh );
-	}
-	adjustWindowSize(screenW, screenH) {
-		this.screenW = screenW;
-		this.screenH = screenH;
+	updateSize(screenW, screenH) {
+		this.renderer.setSize(screenW, screenH, false);
+		this.camera.aspect = screenW / screenH;
+		this.camera.updateProjectionMatrix();
+		this.domElement = this.renderer.domElement;
 	}
 	update(delta) {
 		this.controller.update(delta);
-		this.camera.position.copy(this.controller.position);
-		this.clientPlayer.setPoseFromController(this.controller);
+
 		this.netPlayers.forEach((nPlayer) => {
 			nPlayer.update(delta);
 		});
@@ -1179,9 +1659,9 @@ class World {
 		var last = 0;
 		var next = 1;
 
-		this.netPlayers.forEach((nPlayer) => {
-			if (nPlayer.socketID == this.clientSocketID) return;
-			var buffer = nPlayer.positionBuffer;
+		EntityManager.entities.forEach(entity => {
+			if (entity.type == EntityType.PLAYER && entity.socketID == this.clientPlayer.socketID) return;
+			var buffer = entity.positionBuffer;
 
 			while(buffer.length >= 2 && buffer[next].time <= delayedTime) {
 				buffer.shift();
@@ -1189,30 +1669,27 @@ class World {
 
 			if (buffer.length >= 2 && buffer[last].time <= delayedTime && buffer[next].time >= delayedTime) {
 				var timePercent = (delayedTime - buffer[last].time) / (buffer[next].time - buffer[last].time)
-				var px = LMath.lerp(buffer[last].state.x, buffer[next].state.x, timePercent);
-				var py = LMath.lerp(buffer[last].state.y, buffer[next].state.y, timePercent);
-				var pz = LMath.lerp(buffer[last].state.z, buffer[next].state.z, timePercent);
+				var px = LMath.lerp(buffer[last].state.position.x, buffer[next].state.position.x, timePercent);
+				var py = LMath.lerp(buffer[last].state.position.y, buffer[next].state.position.y, timePercent);
+				var pz = LMath.lerp(buffer[last].state.position.z, buffer[next].state.position.z, timePercent);
 
 				var lastRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-					buffer[last].state.rot_x,
-					buffer[last].state.rot_y,
-					0, "YXZ"));
+					buffer[last].state.rotation.x,
+					buffer[last].state.rotation.y,
+					buffer[last].state.rotation.z, "YXZ"));
 				var nextRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-					buffer[next].state.rot_x,
-					buffer[next].state.rot_y,
-					0, "YXZ"));
+					buffer[next].state.rotation.x,
+					buffer[next].state.rotation.y,
+					buffer[next].state.rotation.z, "YXZ"));
 				var slerpRotation = new THREE.Quaternion();
 				THREE.Quaternion.slerp(lastRotation, nextRotation, slerpRotation, timePercent);
 				var pRot = new THREE.Euler().setFromQuaternion(slerpRotation, "YXZ");
-				this.netPlayers.get(nPlayer.socketID).setPlayerPose(px, py, pz, pRot.x, pRot.y);
+				entity.position.set(px, py, pz);
+				entity.rotation.set(pRot.x, pRot.y, pRot.z);
 			}
 		});
 	}
 	render() {
-		this.renderer.setClearColor(0x0a0806, 1);
-   	this.renderer.setPixelRatio(window.devicePixelRatio);
-
-   	this.renderer.setSize(this.screenW, this.screenH);
    	this.renderer.render(this.scene, this.camera);
 	}
 	lightUp(x, y, z) {
@@ -1225,4 +1702,4 @@ class World {
 
 module.exports = World;
 
-},{"../common/Constants":3,"../common/Math/LMath":4,"./BufferMapBlock":6,"./Entity":7,"./FPSController":8,"./NetPlayer":9}]},{},[2]);
+},{"../common/Constants":9,"../common/EntityType":10,"../common/Math/LMath":11,"../common/Utils":12,"./BufferMapBlock":13,"./Entity":14,"./EntityManager":15,"./FirstPersonController":16,"./NetPlayer":17}]},{},[7]);

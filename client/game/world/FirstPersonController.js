@@ -1,8 +1,10 @@
 var Utils = require("../common/Utils");
+var Constants = require("../common/Constants");
 
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
-class FPSController {
-	constructor(camera, domElement) {
+class FirstPersonController {
+	constructor(camera, domElement, entity) {
+		this.entity = entity;
 		this.camera = camera;
 
 		this.speed = 1;
@@ -18,7 +20,9 @@ class FPSController {
 
 		this.sprinting = false;
 
-		this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
+		this.position = new THREE.Vector3();
+		this.rotation = new THREE.Euler(0, 0, 0, Constants.ROTATION_ORDER);
+
 		this.PI_2 = Math.PI / 2;
 		this.vec = new THREE.Vector3();
 
@@ -29,32 +33,26 @@ class FPSController {
 		this.lockCallback = function(){};
 		this.unlockCallback = function(){};
 
-		this.initEvents();
-	}
-	dispose() {
-		this.camera = null;
-		this.enabled = false;
-	}
-	addPoseChangeListener(callback) {
-		this.onPoseChange = callback;
-	}
-	initEvents() {
 		this.enabled = true;
-
 		document.addEventListener("pointerlockchange", Utils.bind(this, this.onPointerlockChange), false);
 		document.addEventListener('mousemove', Utils.bind(this, this.onMouseMove), false);
 		document.addEventListener('keydown', Utils.bind(this, this.onKeyDown), false);
 		document.addEventListener('keyup', Utils.bind(this, this.onKeyUp), false);
 	}
-	initPose(x, y, z, rotX, rotY) {
-		this.position = new THREE.Vector3(x, y, z);
-		this.camera.position.set(x, y, z);
+	initPose(x, y, z, rotX, rotY, rotZ) {
+		this.position.set(x, y, z);
+		this.rotation = new THREE.Euler(rotX, rotY, rotZ, Constants.ROTATION_ORDER);
 
-		this.euler.x = rotX;
-		this.euler.y = rotY;
-		this.camera.quaternion.setFromEuler(this.euler);
-
-		this.onPoseChange(this.position, this.euler);
+		this.onPoseChange(this.position, this.rotation);
+	}
+	dispose() {
+		this.enabled = false;
+	}
+	onPoseChange(position, rotation) {
+		this.entity.world.socket.emit(Constants.NET_CLIENT_POSE_CHANGE, position, rotation.toVector3());
+	}
+	addPoseChangeListener(callback) {
+		this.onPoseChange = callback;
 	}
 	addPointLockListener(callback) {
 		this.lockCallback = callback;
@@ -75,16 +73,16 @@ class FPSController {
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
 		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-		this.euler.setFromQuaternion(this.camera.quaternion);
+		this.rotation.setFromQuaternion(this.camera.quaternion);
 
-		this.euler.y -= movementX * this.turnSpeed;
-		this.euler.x -= movementY * this.turnSpeed;
+		this.rotation.y -= movementX * this.turnSpeed;
+		this.rotation.x -= movementY * this.turnSpeed;
 
-		this.euler.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.euler.x));
+		this.rotation.x = Math.max(-this.PI_2, Math.min(this.PI_2, this.rotation.x));
 
-		this.camera.quaternion.setFromEuler(this.euler);
+		this.camera.quaternion.setFromEuler(this.rotation); //TODO move this
 
-		this.isRotationChanged = true;
+		this.isTurning = true;
 	}
 	onKeyDown(event) {
 		if (!this.enabled) return;
@@ -171,10 +169,12 @@ class FPSController {
 		if (this.moveDown && !this.moveUp) this.moveCamUp(-adjustedSpeed);
 
 		this.isMoving = !previousPosition.equals(this.position);
-		if(this.isMoving || this.isRotationChanged) {
-			this.onPoseChange(this.position, this.euler);
-			//if (isPositionChanged) this.camera.position.copy(this.position);
-			if (this.isRotationChanged) this.isRotationChanged = false;
+		if(this.isMoving || this.isTurning) {
+			this.onPoseChange(this.position, this.rotation);
+			this.entity.updatePlayerPose(this.position.x, this.position.y, this.position.z, this.rotation.x, this.rotation.y);
+			this.camera.position.addVectors(this.position, new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET, 0));
+			this.camera.rotation.copy(this.rotation);
+			if (this.isTurning) this.isTurning = false;
 		}
 	}
 	lock() {
@@ -185,4 +185,4 @@ class FPSController {
 	}
 }
 
-module.exports = FPSController;
+module.exports = FirstPersonController;
