@@ -1,15 +1,18 @@
-const Utils = require("../common/Utils");
-const EntityType = require("../common/EntityType");
+const Utils = require("../Utils");
+const EntityT = require("./EntityT");
 
 class Entity {
-	constructor(id, type) {
+	constructor(id, type, components=[]) {
 		this.id = id;
-		this.type = type ? type : EntityType.GENERIC;
+		this.type = type ? type : EntityT.GENERIC;
 
 		this.systemsDirty = false;
 
-		this.components = [];
 		this.systems = [];
+		this.components = {};
+		for (var i = 0, component; component = components[i]; i++) {
+			this.components[component.type] = component.data;
+		}
 	}
 	addToManager(manager) {
 		this.manager = manager;
@@ -39,8 +42,9 @@ class Entity {
 	}
 	addArrayOfComponents(components) {
 		for (var i = 0, component; component = components[i]; i++) {
-			this.addComponent(component);
+			this.components[component.type] = component.data;
 		}
+		this.setSystemsDirty();
 	}
 	removeComponent(type) {
 		if (!this.components[type]) {

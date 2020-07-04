@@ -1,4 +1,4 @@
-const Utils = require("../common/Utils");
+const Utils = require("../Utils");
 
 class System {
 	constructor() {

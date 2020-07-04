@@ -2,14 +2,13 @@ var Entity = require("./Entity");
 var BufferMapBlock = require("./BufferMapBlock");
 
 var Constants = require("../common/Constants");
-var EntityType = require("../common/EntityType");
-var Assets = require("../../Assets");
+var Assets = require("../Assets");
 
 class NetPlayer extends Entity {
 	// constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
 	// 	super(x, y, z, world);
 	constructor(id, world, socketID, name) {
-		super(id, EntityType.PLAYER, world);
+		super(id, EntityT.PLAYER, world);
 		this.name = name;
 		this.socketID = socketID;
 		this.isClientPlayer = (this.world.socket.id == this.socketID);

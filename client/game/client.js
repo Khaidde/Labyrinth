@@ -2,11 +2,9 @@ var screenW;
 var screenH;
 
 var Constants = require("./common/Constants");
-var Assets = require("../Assets");
+var Assets = require("./Assets");
 
 var World = require("./world/World");
-
-var ECStest = require("./ECS/ECSDemo");
 
 const socket = io();
 
@@ -18,6 +16,7 @@ const main = {
 
 		socket.on(Constants.NET_INIT_WORLD, function(worldInfo) {
 			main.world = new World(socket, worldInfo);
+			/*
 			main.world.controller.addPointUnlockListener(function() {
 				main.world.controller.enabled = false;
 				main.pauseMenuOpacity = 0.01;
@@ -25,6 +24,7 @@ const main = {
 				document.getElementById("pauseMenu").style.pointerEvents = "auto";
 			});
 			main.world.controller.lock();
+			*/
 			main.world.updateSize(screenW, screenH);
 		});
 
@@ -90,8 +90,8 @@ const main = {
 			pauseMenu.style.opacity = 0;
 			main.pauseMenuOpacity = 0;
 
-			main.world.controller.lock();
-			main.world.controller.enabled = true;
+			//main.world.controller.lock();
+			//main.world.controller.enabled = true;
 		});
 
 		optionsBtn.addEventListener("click", function() {
@@ -112,7 +112,7 @@ const main = {
 		mouseSensitivityOutput.addEventListener("blur", function() {
 			mouseSensitivityOutput.value = Math.min(Math.max(mouseSensitivityOutput.value, mouseSensitivityOutput.min), mouseSensitivityOutput.max);
 			mouseSensitivityRange.value = mouseSensitivityOutput.value;
-			main.world.controller.turnSpeed = mouseSensitivityOutput.value / 2000;
+			//main.world.controller.turnSpeed = mouseSensitivityOutput.value / 2000;
 		});
 
 		optionsBackBtn.addEventListener("click", function() {

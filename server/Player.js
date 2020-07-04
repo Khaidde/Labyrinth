@@ -1,10 +1,10 @@
 var ServerEntity = require("./ServerEntity");
 
-var EntityType = require("../client/game/common/EntityType");
+var EntityT = require("../client/game/common/ecs/EntityT");
 
 class Player extends ServerEntity {
 	constructor(name, socketID, room) {
-		super(EntityType.PLAYER, room);
+		super(EntityT.PLAYER, room);
 		this.name = name;
 		this.socketID = socketID;
 	}

@@ -1,7 +1,5 @@
 var Constants = require("../common/Constants");
-var Assets = require("../../Assets");
-
-var EntityManager = require("./EntityManager");
+var Assets = require("../Assets");
 
 class Entity {
 	constructor(id, type, world) {

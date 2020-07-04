@@ -1,15 +1,18 @@
 var Constants = require("../common/Constants");
-var EntityType = require("../common/EntityType");
 var Utils = require("../common/Utils");
 var LMath = require("../common/Math/LMath");
 
-var EntityManager = require("./EntityManager");
-
-var Entity = require("./Entity");
-var NetPlayer = require("./NetPlayer");
 var BufferMapBlock = require("./BufferMapBlock");
 
-var FirstPersonController = require("./FirstPersonController");
+//var test = require("../common/ecs/ECSDemo");
+var ECS = require("../common/ecs/ECS");
+var EntityT = require("../common/ecs/EntityT");
+var ComponentT = require("../common/ecs/ComponentT");
+
+var Player = require("./entity/Player");
+
+//Systems
+var RenderSystem = require("./system/RenderSystem");
 
 class World {
 	constructor (socket, worldInfo) {
@@ -34,33 +37,48 @@ class World {
 
 		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
-		this.renderer.setClearColor(0x0a0806, 1);
-   	this.renderer.setPixelRatio(window.devicePixelRatio);
 
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
 
+		//Temporary camera instantiation
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
+		this.camera.position.set(0, 10, 0);
+		this.camera.rotation.set(0, -(Math.PI * 3 / 4), 0);
+		this.scene.add(this.camera);
+
+		this.entityManager = new ECS.Manager();
+		this.entityManager.addArrayOfSystems([
+			new RenderSystem(this.scene)
+		]);
+
+		this.entityManager.addEntityArchetype(EntityT.PLAYER, Player);
+		var player = this.entityManager.createEntity(EntityT.PLAYER, 0);
+		player.get(ComponentT.MODEL).assetName = "Player";
+		player.get(ComponentT.TRANSFORM).position.set(10, 10, 5);
+
 		//Initialize server listeners
-		this.initServerListeners();
+		//this.initServerListeners();
 
 		//Initialize players
-		this.netPlayers = new Map();
-		this.initPlayer(worldInfo);
+		//this.netPlayers = new Map();
+		//this.initPlayer(worldInfo);
 
 		this.initMap(worldInfo);
 	}
 	dispose() {
 		this.bufferMapGeom.dispose();
-		this.controller.dispose();
+		//this.controller.dispose();
 		this.scene.dispose();
 		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
 
 		EntityManager.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
 	}
+	/*
 	initServerListeners() {
 		this.socket.on(Constants.NET_WORLD_STATE_UPDATE, Utils.bind(this, worldInfo => {
-			this.updateNetPlayers(worldInfo.entities, worldInfo.removedEntityIDs);
+			//this.updateNetPlayers(worldInfo.entities, worldInfo.removedEntityIDs);
 			//Do the same for entities when they are included TODO
 		}));
 	}
@@ -73,7 +91,7 @@ class World {
 			if (entityOnClient == undefined) { //Make new entity
 				var newEntity;
 				switch(entityOnServer.type) {
-				case EntityType.PLAYER:
+				case EntityT.PLAYER:
 					newEntity = new NetPlayer(entityOnServer.id, this, entityOnServer.socketID, entityOnServer.name);
 					newEntity.setPosition(entityOnServer.position);
 					newEntity.setRotation(entityOnServer.rotation);
@@ -86,7 +104,7 @@ class World {
 				}
 				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) newEntity.insertPositionWithTime(Date.now(), entityOnServer);
 			} else { //Update existing entity
-				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
+				if (entityOnClient.type == EntityT.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
 				if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 					entityOnClient.insertPositionWithTime(Date.now(), entityOnServer);
 				} else {
@@ -97,7 +115,7 @@ class World {
 		});
 		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) {
 			entitiesOnClient.forEach(entityOnClient => {
-				if (entityOnClient.type == EntityType.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
+				if (entityOnClient.type == EntityT.PLAYER && entityOnClient.socketID == this.clientPlayer.socketID) return;
 				if (!entities.some(entityOnServer => {return entityOnClient.id == entityOnServer.id;})) {
 					entityOnClient.insertPositionWithTime(Date.now(), entityOnClient.positionBuffer[entityOnClient.positionBuffer.length - 1].state);
 				}
@@ -109,6 +127,8 @@ class World {
 			});
 		}
 	}
+	*/
+	/*
 	initPlayer(worldInfo) {
 		var cPlayer = worldInfo.entities.find((player) => {
 			return player.socketID == this.clientSocketID;
@@ -130,7 +150,8 @@ class World {
 		this.controller.initPose(cPlayer.position.x, cPlayer.position.y, cPlayer.position.z, cPlayer.rotation.x, cPlayer.rotation.y, 0);
 
 		this.addNetPlayer(this.clientPlayer);
-	}
+	}*/
+	/*
 	addNetPlayer(netPlayer) {
 		var socketID = netPlayer.socketID;
 		if (!this.netPlayers.has(socketID)) {
@@ -148,7 +169,7 @@ class World {
    	} else {
 			throw "player {" + socketID + "} does not exist and can't be removed";
 		}
-	}
+	}*/
 	initMap(worldInfo) {
 		//Map mesh
 		var mat = new THREE.MeshPhongMaterial({vertexColors: THREE.VertexColors, side: THREE.FrontSide});
@@ -224,20 +245,19 @@ class World {
 		this.domElement = this.renderer.domElement;
 	}
 	update(delta) {
-		this.controller.update(delta);
+		this.entityManager.update(delta);
+		//this.controller.update(delta);
 
-		this.netPlayers.forEach((nPlayer) => {
-			nPlayer.update(delta);
-		});
-		if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();
+		//if (Constants.DEBUG_DO_ENTITY_INTERPOLATION) this.interpolateEntities();
 	}
+	/*
 	interpolateEntities() {
 		var delayedTime = Date.now() - (1000.0 / Constants.SERVER_SEND_RATE);
 		var last = 0;
 		var next = 1;
 
 		EntityManager.entities.forEach(entity => {
-			if (entity.type == EntityType.PLAYER && entity.socketID == this.clientPlayer.socketID) return;
+			if (entity.type == EntityT.PLAYER && entity.socketID == this.clientPlayer.socketID) return;
 			var buffer = entity.positionBuffer;
 
 			while(buffer.length >= 2 && buffer[next].time <= delayedTime) {
@@ -266,7 +286,10 @@ class World {
 			}
 		});
 	}
+	*/
 	render() {
+		this.renderer.setClearColor(0x0a0806, 1);
+   	this.renderer.setPixelRatio(window.devicePixelRatio);
    	this.renderer.render(this.scene, this.camera);
 	}
 	lightUp(x, y, z) {

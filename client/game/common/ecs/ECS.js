@@ -1,4 +1,4 @@
-const Utils = require("../common/Utils");
+const Utils = require("../Utils");
 
 const Entity = require("./Entity");
 const Component = require("./Component");
@@ -81,7 +81,9 @@ class Manager {
 	}
 	createEntity(typeName, id) {
 		var constructor = this.archetypes[typeName];
-		return new constructor(id);
+		var entity = new constructor(id);
+		this.addEntity(entity);
+		return entity;
 	}
 	addEntityArchetype(typeName, archetype) {
 		this.archetypes[typeName] = archetype;
