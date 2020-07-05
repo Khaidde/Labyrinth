@@ -2,7 +2,7 @@ var Utils = require("../common/Utils");
 var Constants = require("../common/Constants");
 
 //Adaptation of https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
-class FirstPersonController {
+class FirstPersonController { //TODO DELETE THIS CLASS
 	constructor(camera, domElement, entity) {
 		this.entity = entity;
 		this.camera = camera;

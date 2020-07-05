@@ -4,6 +4,8 @@ var screenH;
 var Constants = require("./common/Constants");
 var Assets = require("./Assets");
 
+var ComponentT = require("./common/ecs/ComponentT");
+
 var World = require("./world/World");
 
 const socket = io();
@@ -14,18 +16,19 @@ const main = {
 		main.initMenu();
 		main.initPause();
 
-		socket.on(Constants.NET_INIT_WORLD, function(worldInfo) {
-			main.world = new World(socket, worldInfo);
-			/*
-			main.world.controller.addPointUnlockListener(function() {
-				main.world.controller.enabled = false;
+		function onPointerlockChange() {
+			if (document.pointerLockElement !== main.world.domElement) {
+				main.world.entityManager.getSingleton(ComponentT.INPUT).enabled = false;
 				main.pauseMenuOpacity = 0.01;
 				document.getElementById("pauseMenu").style.opacity = 1;
 				document.getElementById("pauseMenu").style.pointerEvents = "auto";
-			});
-			main.world.controller.lock();
-			*/
-			main.world.updateSize(screenW, screenH);
+			}
+		}
+		socket.on(Constants.NET_INIT_WORLD, function(worldInfo) {
+			main.world = new World(socket, worldInfo);
+			document.addEventListener("pointerlockchange", onPointerlockChange, false);
+			main.world.domElement.requestPointerLock();
+			main.world.updateWindowSize(screenW, screenH);
 		});
 
 		socket.on(Constants.NET_SERVER_TO_CLIENT_FORCE_DISCONNECT, function() {
@@ -90,8 +93,8 @@ const main = {
 			pauseMenu.style.opacity = 0;
 			main.pauseMenuOpacity = 0;
 
-			//main.world.controller.lock();
-			//main.world.controller.enabled = true;
+			main.world.domElement.requestPointerLock();
+			main.world.entityManager.getSingleton(ComponentT.INPUT).enabled = true;
 		});
 
 		optionsBtn.addEventListener("click", function() {
@@ -106,13 +109,13 @@ const main = {
 
 		mouseSensitivityRange.oninput = function() {
     		mouseSensitivityOutput.value = mouseSensitivityRange.value;
-			main.world.controller.turnSpeed = mouseSensitivityRange.value / 2000; //divide to scale value
+			main.world.entityManager.getSingleton(ComponentT.SETTINGS).turnSpeed = mouseSensitivityOutput.value * Constants.TURN_SPEED_ADJUST_RATIO;
 		};
 
 		mouseSensitivityOutput.addEventListener("blur", function() {
 			mouseSensitivityOutput.value = Math.min(Math.max(mouseSensitivityOutput.value, mouseSensitivityOutput.min), mouseSensitivityOutput.max);
 			mouseSensitivityRange.value = mouseSensitivityOutput.value;
-			//main.world.controller.turnSpeed = mouseSensitivityOutput.value / 2000;
+			main.world.entityManager.getSingleton(ComponentT.SETTINGS).turnSpeed = mouseSensitivityOutput.value * Constants.TURN_SPEED_ADJUST_RATIO;
 		});
 
 		optionsBackBtn.addEventListener("click", function() {
@@ -161,7 +164,7 @@ const main = {
 	    	document.body.clientHeight;
 		if (prevW != screenW || prevH != screenH) {
 			if (main.world != undefined) {
-				main.world.updateSize(screenW, screenH);
+				main.world.updateWindowSize(screenW, screenH);
 			}
 		}
 	}

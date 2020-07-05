@@ -4,7 +4,7 @@ var BufferMapBlock = require("./BufferMapBlock");
 var Constants = require("../common/Constants");
 var Assets = require("../Assets");
 
-class NetPlayer extends Entity {
+class NetPlayer extends Entity { //TODO DELETE THIS CLASS
 	// constructor(socketID, name, x, y, z, rot_x, rot_y, world) {
 	// 	super(x, y, z, world);
 	constructor(id, world, socketID, name) {

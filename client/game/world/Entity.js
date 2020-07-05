@@ -1,7 +1,7 @@
 var Constants = require("../common/Constants");
 var Assets = require("../Assets");
 
-class Entity {
+class Entity { //TODO DELETE THIS CLASS
 	constructor(id, type, world) {
 		this.id = id;
 		this.type = type;

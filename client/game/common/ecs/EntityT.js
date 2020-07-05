@@ -1,4 +1,5 @@
 const EntityT = {
+	ADMIN: "admin",
 	GENERIC: "none",
 	PLAYER: "player"
 }

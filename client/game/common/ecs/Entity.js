@@ -33,7 +33,8 @@ class Entity {
 		if (index !== -1) {
 			Utils.splice(this.systems, index, 1);
 		} else {
-			throw "entity {" + this + "} does not contain system {" + system + "}";
+			console.log(system);
+			throw "entity {" + this.id + "," + this.type + "} does not contain system {" + system + "}";
 		}
 	}
 	addComponent(component) {
@@ -48,7 +49,7 @@ class Entity {
 	}
 	removeComponent(type) {
 		if (!this.components[type]) {
-			throw "entity {" + this + "} does not contain component {" + type + "}";
+			throw "entity {" + this.id + "," + this.type + "} does not contain component {" + type + "}";
 			return;
 		}
 		this.components[type] = undefined;

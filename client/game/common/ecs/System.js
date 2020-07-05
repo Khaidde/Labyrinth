@@ -4,6 +4,9 @@ class System {
 	constructor() {
 		this.entities = [];
 	}
+	addToManager(manager) {
+		this.manager = manager;
+	}
 	addEntity(entity) {
 		entity.addSystem(this);
 		this.entities.push(entity);
@@ -21,14 +24,15 @@ class System {
 		}
 	}
 	dispose() {
-		for (let i = 0, entity; entity = this.entities[0]; i++) {
+		for (let i = 0, entity; entity = this.entities[i]; i++) {
       	entity.removeSystem(this);
       	this.exit(entity);
    	}
 	}
 	enter(entity) {}
 	test(entity) {
-		throw "System {" + this + "} requires a /'test/' function overload";
+		console.log(this);
+		throw "System requires a /'test/' function overload";
 		return false;
 	}
 	exit(entity) {}

@@ -1,4 +1,5 @@
 const Utils = require("../Utils");
+const EntityT = require("./EntityT");
 
 const Entity = require("./Entity");
 const Component = require("./Component");
@@ -13,6 +14,9 @@ class Manager {
 		this.archetypes = [];
 
 		this.entitiesSystemsDirty = [];
+
+		this.adminEntity = new Entity(0, EntityT.ADMIN);
+		this.addEntity(this.adminEntity);
 	}
 	getEntityById(id) {
    	for (var i = 0, entity; entity = this.entities[i]; i++) {
@@ -57,8 +61,15 @@ class Manager {
 	      Utils.splice(this.entities, index, 1);
    	}
   	}
+	addSingletonComponent(component) {
+		this.adminEntity.addComponent(component);
+	}
+	removeSingletonComponent(type) {
+		this.adminEntity.removeComponent(type);
+	}
 	addSystem(system) {
 		this.systems.push(system);
+		system.addToManager(this);
 
 		for (var i = 0, entity; entity = this.entities[i]; i++) {
    		if (system.test(entity)) {
@@ -80,6 +91,11 @@ class Manager {
 		}
 	}
 	createEntity(typeName, id) {
+		var constructor = this.archetypes[typeName];
+		var entity = new constructor(id);
+		return entity;
+	}
+	createAndAddEntity(typeName, id) {
 		var constructor = this.archetypes[typeName];
 		var entity = new constructor(id);
 		this.addEntity(entity);
@@ -126,6 +142,9 @@ class Manager {
 			entity.systemsDirty = false;
    	}
     	this.entitiesSystemsDirty = [];
+	}
+	getSingleton(type) {
+		return this.adminEntity.get(type);
 	}
 }
 

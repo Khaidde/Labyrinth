@@ -11,7 +11,17 @@ var ComponentT = require("../common/ecs/ComponentT");
 
 var Player = require("./entity/Player");
 
+//Components
+var SGLInputComponent = require("./component/SGLInputComponent");
+var SGLSettingsComponent = require("./component/SGLSettingsComponent");
+
+var CameraComponent = require("./component/CameraComponent");
+
 //Systems
+var InputSystem = require("./system/InputSystem");
+
+var FirstPersonSystem = require("./system/FirstPersonSystem");
+var AnimationSystem = require("./system/AnimationSystem");
 var RenderSystem = require("./system/RenderSystem");
 
 class World {
@@ -38,24 +48,30 @@ class World {
 		this.renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: false });
 		this.renderer.shadowMap.enabled = true;
 
+		//Init domElement and pointer lock API
 		this.domElement = this.renderer.domElement;
 		document.body.appendChild(this.domElement);
+		this.domElement.requestPointerLock = this.domElement.requestPointerLock || this.domElement.mozRequestPointerLock;
+		document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
-		//Temporary camera instantiation
+		//Temporary camera instantiation? TODO
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
-		this.camera.position.set(0, 10, 0);
-		this.camera.rotation.set(0, -(Math.PI * 3 / 4), 0);
 		this.scene.add(this.camera);
 
 		this.entityManager = new ECS.Manager();
+		this.entityManager.addSingletonComponent(new SGLInputComponent());
+		this.entityManager.addSingletonComponent(new SGLSettingsComponent());
 		this.entityManager.addArrayOfSystems([
+			new InputSystem(),
+
+			new FirstPersonSystem(),
+			new AnimationSystem(),
 			new RenderSystem(this.scene)
 		]);
 
 		this.entityManager.addEntityArchetype(EntityT.PLAYER, Player);
-		var player = this.entityManager.createEntity(EntityT.PLAYER, 0);
-		player.get(ComponentT.MODEL).assetName = "Player";
-		player.get(ComponentT.TRANSFORM).position.set(10, 10, 5);
+
+		this.initClientPlayer(worldInfo);
 
 		//Initialize server listeners
 		//this.initServerListeners();
@@ -68,12 +84,43 @@ class World {
 	}
 	dispose() {
 		this.bufferMapGeom.dispose();
-		//this.controller.dispose();
+		this.entityManager.getSingleton(ComponentT.INPUT).enabled = false;
 		this.scene.dispose();
+
 		this.socket.off(Constants.NET_WORLD_STATE_UPDATE);
 
-		EntityManager.dispose();
+		this.entityManager.dispose();
 		this.domElement.parentElement.removeChild(this.domElement);
+	}
+	initClientPlayer(worldInfo) { //TODO move this into a "server system" related class
+		this.clientPlayer = this.entityManager.createEntity(EntityT.PLAYER, 0);
+		this.clientPlayer.get(ComponentT.TRANSFORM).position.set(10, 0, 10);
+		this.clientPlayer.get(ComponentT.AIM).aimRotation.set(0, - Math.PI * 3 / 4, 0);
+		this.clientPlayer.get(ComponentT.STATS).movementSpeed = 0.003;
+
+		RenderSystem.initModel(this.clientPlayer, "Player");
+		this.clientPlayer.get(ComponentT.MODEL).mesh.visible = true;
+
+		this.clientPlayer.get(ComponentT.ANIMATION).transitionToActionName = "Walk";
+
+		var camComponent = new CameraComponent(this.camera);
+		camComponent.data.cameraOffset = new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET, 0);//2 * Constants.PLAYER_HEIGHT_OFFSET);
+		this.clientPlayer.addComponent(camComponent);
+
+		this.entityManager.addEntity(this.clientPlayer);
+
+		//TODO Delete: Dummy Player
+		var dummyPlayer = this.entityManager.createEntity(EntityT.PLAYER, 1);
+		dummyPlayer.get(ComponentT.TRANSFORM).position.set(5, 0, 5);
+		dummyPlayer.get(ComponentT.AIM).aimRotation.set(0, Math.PI * 3 / 4, 0);
+		dummyPlayer.get(ComponentT.STATS).movementSpeed = 0.003;
+
+		RenderSystem.initModel(dummyPlayer, "Player");
+		dummyPlayer.get(ComponentT.MODEL).mesh.visible = true;
+
+		dummyPlayer.get(ComponentT.ANIMATION).transitionToActionName = "Idle";
+
+		this.entityManager.addEntity(dummyPlayer);
 	}
 	/*
 	initServerListeners() {
@@ -238,7 +285,7 @@ class World {
 			}
 		}
 	}
-	updateSize(screenW, screenH) {
+	updateWindowSize(screenW, screenH) {
 		this.renderer.setSize(screenW, screenH, false);
 		this.camera.aspect = screenW / screenH;
 		this.camera.updateProjectionMatrix();
