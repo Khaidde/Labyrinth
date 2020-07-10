@@ -24,8 +24,8 @@ class MovementBlendSystem extends ECS.System {
 		moveBlend.deltaForward = LMath.lerp(moveBlend.deltaForward, moveBlend.targetDeltaForward, 0.2);
 		moveBlend.deltaRight = LMath.lerp(moveBlend.deltaRight, moveBlend.targetDeltaRight, 0.2);
 
-		var dF = moveBlend.dF;
-		var dR = moveBlend.dR;
+		var dF = moveBlend.deltaForward;
+		var dR = moveBlend.deltaRight;
 
 		var combinedDelta = Math.abs(dF) + Math.abs(dR);
 		var idleWeight = 1 / (combinedDelta + 1);

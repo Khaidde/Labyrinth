@@ -66,6 +66,7 @@ class World {
 			new InputSystem(),
 
 			new FirstPersonSystem(),
+			
 			new AnimationSystem(),
 			new MovementBlendSystem(),
 			new RenderSystem(this.scene)
