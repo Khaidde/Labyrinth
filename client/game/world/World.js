@@ -22,6 +22,7 @@ var InputSystem = require("./system/InputSystem");
 
 var FirstPersonSystem = require("./system/FirstPersonSystem");
 var AnimationSystem = require("./system/AnimationSystem");
+var MovementBlendSystem = require("./system/MovementBlendSystem");
 var RenderSystem = require("./system/RenderSystem");
 
 class World {
@@ -66,6 +67,7 @@ class World {
 
 			new FirstPersonSystem(),
 			new AnimationSystem(),
+			new MovementBlendSystem(),
 			new RenderSystem(this.scene)
 		]);
 
@@ -101,8 +103,6 @@ class World {
 		RenderSystem.initModel(this.clientPlayer, "Player");
 		this.clientPlayer.get(ComponentT.MODEL).mesh.visible = true;
 
-		this.clientPlayer.get(ComponentT.ANIMATION).transitionToActionName = "Walk";
-
 		var camComponent = new CameraComponent(this.camera);
 		camComponent.data.cameraOffset = new THREE.Vector3(0, Constants.PLAYER_HEIGHT_OFFSET, 0);//2 * Constants.PLAYER_HEIGHT_OFFSET);
 		this.clientPlayer.addComponent(camComponent);
@@ -118,9 +118,9 @@ class World {
 		RenderSystem.initModel(dummyPlayer, "Player");
 		dummyPlayer.get(ComponentT.MODEL).mesh.visible = true;
 
-		dummyPlayer.get(ComponentT.ANIMATION).transitionToActionName = "Idle";
+		dummyPlayer.get(ComponentT.ANIMATION).transitionToActionName = Constants.IDLE_ANIM;
 
-		this.entityManager.addEntity(dummyPlayer);
+		//this.entityManager.addEntity(dummyPlayer);
 	}
 	/*
 	initServerListeners() {

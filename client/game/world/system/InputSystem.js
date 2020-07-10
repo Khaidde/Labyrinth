@@ -1,4 +1,5 @@
 var Utils = require("../../common/Utils");
+var Constants = require("../../common/Constants");
 var ComponentT = require("../../common/ecs/ComponentT");
 
 var ECS = require("../../common/ecs/ECS");
@@ -28,13 +29,6 @@ class InputSystem extends ECS.System {
 		event = event || window.event;
 		this.input.accumulatedMouseX += event.movementX;
 		this.input.accumulatedMouseY += event.movementY;
-		/*
-		this.input.mouseX = event.pageX;
-		this.input.mouseY = event.pageY;
-		if (this.input.lastTickMouseX === -1 || this.input.lastTickMouseY === -1) {
-			this.input.lastTickMouseX = event.pageX;
-			this.input.lastTickMouseY = event.pageY;
-		}*/
 	}
 	onMouseUp(event) {
 		if (!this.input.enabled) return;
@@ -50,31 +44,31 @@ class InputSystem extends ECS.System {
 	onKeyDown(event) {
 		if (!this.input.enabled) return;
 		switch(event.keyCode) {
-			case 87: /*W*/ this.input.moveForward = true; break;
-			case 65: /*A*/ this.input.moveLeft = true; break;
-			case 83: /*S*/ this.input.moveBackward = true; break;
-			case 68: /*D*/ this.input.moveRight = true; break;
+			case 87: /*W*/ this.input.moveForward = Constants.PRESSED; break;
+			case 65: /*A*/ this.input.moveLeft = Constants.PRESSED; break;
+			case 83: /*S*/ this.input.moveBackward = Constants.PRESSED; break;
+			case 68: /*D*/ this.input.moveRight = Constants.PRESSED; break;
 
-			case 82: /*R*/ this.input.moveUp = true; break;
-			case 70: /*F*/ this.input.moveDown = true; break;
+			case 82: /*R*/ this.input.moveUp = Constants.PRESSED; break;
+			case 70: /*F*/ this.input.moveDown = Constants.PRESSED; break;
 
-			case 16: /*Shift*/ this.input.sprint = true; break;
-			case 32: /*Space*/ this.input.jump = true; break;
+			case 16: /*Shift*/ this.input.sprint = Constants.PRESSED; break;
+			case 32: /*Space*/ this.input.jump = Constants.PRESSED; break;
 		}
 	}
 	onKeyUp(event) {
 		if (!this.input.enabled) return;
 		switch(event.keyCode) {
-			case 87: /*W*/ this.input.moveForward = false; break;
-			case 65: /*A*/ this.input.moveLeft = false; break;
-			case 83: /*S*/ this.input.moveBackward = false; break;
-			case 68: /*D*/ this.input.moveRight = false; break;
+			case 87: /*W*/ this.input.moveForward = Constants.RELEASED; break;
+			case 65: /*A*/ this.input.moveLeft = Constants.RELEASED; break;
+			case 83: /*S*/ this.input.moveBackward = Constants.RELEASED; break;
+			case 68: /*D*/ this.input.moveRight = Constants.RELEASED; break;
 
-			case 82: /*R*/ this.input.moveUp = false; break;
-			case 70: /*F*/ this.input.moveDown = false; break;
+			case 82: /*R*/ this.input.moveUp = Constants.RELEASED; break;
+			case 70: /*F*/ this.input.moveDown = Constants.RELEASED; break;
 
-			case 16: /*Shift*/ this.input.sprint = false; break;
-			case 32: /*Space*/ this.input.jump = false; break;
+			case 16: /*Shift*/ this.input.sprint = Constants.RELEASED; break;
+			case 32: /*Space*/ this.input.jump = Constants.RELEASED; break;
 		}
 	}
 	test(entity) {

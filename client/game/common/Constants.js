@@ -4,6 +4,13 @@ const Constants = {
 	FPS_SMOOTHING_WEIGHT_RATIO: 0.9,
 	SERVER_SEND_RATE: 20,
 
+	//Animation
+	IDLE_ANIM: "Idle",
+	FORWARD_ANIM: "Forward",
+	L_STRAFE_ANIM: "StrafeLeft",
+	R_STRAFE_ANIM: "StrafeRight",
+	JUMP_ANIM: "Jump",
+
 	//Math
 	ROTATION_ORDER: "YXZ",
 	PI_TWO: Math.PI / 2,
@@ -21,6 +28,8 @@ const Constants = {
 	DEBUG_DO_ENTITY_INTERPOLATION: true,
 
 	//Miscellaneous
+	PRESSED: 1,
+	RELEASED: 0,
 	TURN_SPEED_ADJUST_RATIO: 0.0005,
 	NO_ANIMATION: "no_anim",
 

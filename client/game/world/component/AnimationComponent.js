@@ -10,7 +10,8 @@ class AnimationComponent extends ECS.Component {
 			animations: undefined,
 			transitionToActionName: Constants.NO_ANIMATION,
 			currentActionName: Constants.NO_ANIMATION,
-			activeAction: undefined
+			activeAction: undefined,
+			fadeDuration: 0.2 //Amount of time it takes to fade into a new animation
 		});
 	}
 }

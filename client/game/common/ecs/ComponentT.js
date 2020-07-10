@@ -7,13 +7,12 @@ const ComponentT = {
 	MODEL: "model",
 	ANIMATION: "anim",
 	BONE_ANIM: "bone_anim",
+	MOVE_BLEND: "move_blend",
 
 	CAMERA: "camera",
 	AIM: "aim",
 
 	STATS: "stats",
-
-	ENTITY_STATE: "e_state"
 }
 
 module.exports = ComponentT;
